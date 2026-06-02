@@ -1,6 +1,6 @@
-<mxfile host="app.diagrams.net" pages="4">
+<mxfile host="app.diagrams.net" pages="5">
   <diagram name="Diagramas de uso" id="an8WGd-Qf2AiefdOjbVj">
-    <mxGraphModel dx="1455" dy="640" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="3304" dy="1720" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -675,6 +675,203 @@
           <mxGeometry relative="1" as="geometry">
             <mxPoint x="1520" y="1680" as="targetPoint" />
           </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="3LCjZdt8L0RTJPV6-9OP" name="Diagramas de comunicacion">
+    <mxGraphModel dx="2264" dy="748" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="JvCTsrGcn0IOGX7L8DgE-1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=center;fontStyle=0;" value="&lt;u&gt;admin:Administrador&lt;/u&gt;" vertex="1">
+          <mxGeometry height="60" width="140" x="-330" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="JvCTsrGcn0IOGX7L8DgE-2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=center;fontStyle=0;" value="&lt;u&gt;formulario:FormularioRegistro&lt;/u&gt;" vertex="1">
+          <mxGeometry height="60" width="180" x="130" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="JvCTsrGcn0IOGX7L8DgE-3" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=center;fontStyle=0;" value="&lt;u&gt;sistema:SistemaCondominio&lt;/u&gt;" vertex="1">
+          <mxGeometry height="60" width="180" x="500" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="JvCTsrGcn0IOGX7L8DgE-4" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=center;fontStyle=0;" value="&lt;u&gt;unidad:Unidad&lt;/u&gt;" vertex="1">
+          <mxGeometry height="60" width="180" x="500" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="JvCTsrGcn0IOGX7L8DgE-5" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=center;fontStyle=0;" value="&lt;u&gt;propietario:Propietario&lt;/u&gt;" vertex="1">
+          <mxGeometry height="60" width="180" x="920" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="JvCTsrGcn0IOGX7L8DgE-6" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=center;fontStyle=0;" value="&lt;u&gt;bd:BaseDatos&lt;/u&gt;" vertex="1">
+          <mxGeometry height="60" width="180" x="500" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="JvCTsrGcn0IOGX7L8DgE-7" edge="1" parent="1" source="JvCTsrGcn0IOGX7L8DgE-1" style="edgeStyle=none;endArrow=none;startArrow=none;html=1;rounded=0;labelBackgroundColor=#ffffff;" target="JvCTsrGcn0IOGX7L8DgE-2" value="1: abrirFormulario() ➔&lt;br&gt;2: ingresarDatos(nombre, doc, unidad, tipo) ➔&lt;br&gt;⮜ 8: notificarRegistroExitoso()">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="JvCTsrGcn0IOGX7L8DgE-8" edge="1" parent="1" source="JvCTsrGcn0IOGX7L8DgE-2" style="edgeStyle=none;endArrow=none;startArrow=none;html=1;rounded=0;labelBackgroundColor=#ffffff;" target="JvCTsrGcn0IOGX7L8DgE-3" value="3: enviarRegistro(datos) ➔&lt;br&gt;⮜ 7: mostrarConfirmacion()">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="JvCTsrGcn0IOGX7L8DgE-9" edge="1" parent="1" source="JvCTsrGcn0IOGX7L8DgE-3" style="edgeStyle=none;endArrow=none;startArrow=none;html=1;rounded=0;labelBackgroundColor=#ffffff;" target="JvCTsrGcn0IOGX7L8DgE-4" value="4: verificarUnidad(idUnidad) ⮝&lt;br&gt;⮟ 4.1: return unidadDisponible()">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="JvCTsrGcn0IOGX7L8DgE-10" edge="1" parent="1" source="JvCTsrGcn0IOGX7L8DgE-3" style="edgeStyle=none;endArrow=none;startArrow=none;html=1;rounded=0;labelBackgroundColor=#ffffff;" target="JvCTsrGcn0IOGX7L8DgE-5" value="5: crearPropietario(datos) ➔">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="JvCTsrGcn0IOGX7L8DgE-11" edge="1" parent="1" source="JvCTsrGcn0IOGX7L8DgE-3" style="edgeStyle=none;endArrow=none;startArrow=none;html=1;rounded=0;labelBackgroundColor=#ffffff;" target="JvCTsrGcn0IOGX7L8DgE-6" value="6: guardarPropietario(propietario) ⮟&lt;br&gt;⮝ 6.1: return registroExitoso()">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="7chJzBcE2vFjHhskPNwE-1" parent="1" style="text;whiteSpace=wrap;html=1;fillColor=#eeeeee;strokeColor=#36393d;align=center;verticalAlign=middle;" value="DC1 — Registrar Propietario / Residente (UC2)" vertex="1">
+          <mxGeometry height="40" width="390" x="395" y="380" as="geometry" />
+        </mxCell>
+        <mxCell id="D7J_qoddyd96t-30_hCu-1" parent="1" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=4;fontFamily=Helvetica;fontSize=14;fontColor=#333333;" value="&lt;b&gt;UC12 - Realizar Pago en Línea&lt;/b&gt;&lt;br&gt;Diagrama de Comunicación UML - Módulo de Condominio" vertex="1">
+          <mxGeometry height="40" width="400" x="320" y="1000" as="geometry" />
+        </mxCell>
+        <mxCell id="D7J_qoddyd96t-30_hCu-2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontStyle=0;fontSize=12;strokeWidth=1.5;" value="&lt;u&gt;propietario:Propietario&lt;/u&gt;" vertex="1">
+          <mxGeometry height="60" width="160" x="-180" y="705" as="geometry" />
+        </mxCell>
+        <mxCell id="D7J_qoddyd96t-30_hCu-3" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontStyle=0;fontSize=12;strokeWidth=1.5;" value="&lt;u&gt;interfaz:InterfazPago&lt;/u&gt;" vertex="1">
+          <mxGeometry height="60" width="160" x="270" y="705" as="geometry" />
+        </mxCell>
+        <mxCell id="D7J_qoddyd96t-30_hCu-4" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontStyle=0;fontSize=12;strokeWidth=1.5;" value="&lt;u&gt;sistema:SistemaCondominio&lt;/u&gt;" vertex="1">
+          <mxGeometry height="60" width="160" x="700" y="705" as="geometry" />
+        </mxCell>
+        <mxCell id="D7J_qoddyd96t-30_hCu-5" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontStyle=0;fontSize=12;strokeWidth=1.5;" value="&lt;u&gt;cuenta:CuentaPago&lt;/u&gt;" vertex="1">
+          <mxGeometry height="35" width="160" x="700" y="525" as="geometry" />
+        </mxCell>
+        <mxCell id="D7J_qoddyd96t-30_hCu-6" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontStyle=0;fontSize=12;strokeWidth=1.5;" value="&lt;u&gt;pasarela:PasarelaPago&lt;/u&gt;" vertex="1">
+          <mxGeometry height="60" width="160" x="270" y="900" as="geometry" />
+        </mxCell>
+        <mxCell id="D7J_qoddyd96t-30_hCu-7" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontStyle=0;fontSize=12;strokeWidth=1.5;" value="&lt;u&gt;bd:BaseDatos&lt;/u&gt;" vertex="1">
+          <mxGeometry height="60" width="160" x="1161" y="705" as="geometry" />
+        </mxCell>
+        <mxCell id="D7J_qoddyd96t-30_hCu-8" edge="1" parent="1" source="D7J_qoddyd96t-30_hCu-2" style="edgeStyle=straight;endArrow=none;html=1;rounded=0;fontSize=11;labelBackgroundColor=default;fontColor=#000000;strokeColor=#333333;strokeWidth=1.5;" target="D7J_qoddyd96t-30_hCu-3" value="1: abrirModuloPago() ➔&lt;br&gt;2: seleccionarCuota(idCuota) ➔&lt;br&gt;6: confirmarPago(monto) ➔&lt;br&gt;10: mostrarComprobante() ⬅">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="D7J_qoddyd96t-30_hCu-9" edge="1" parent="1" source="D7J_qoddyd96t-30_hCu-3" style="edgeStyle=straight;endArrow=none;html=1;rounded=0;fontSize=11;labelBackgroundColor=default;fontColor=#000000;strokeColor=#333333;strokeWidth=1.5;" target="D7J_qoddyd96t-30_hCu-4" value="3: consultarDeuda(idPropietario) ➔&lt;br&gt;5: mostrarDeuda(monto) ⬅">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="D7J_qoddyd96t-30_hCu-10" edge="1" parent="1" source="D7J_qoddyd96t-30_hCu-4" style="edgeStyle=straight;endArrow=none;html=1;rounded=0;fontSize=11;labelBackgroundColor=default;fontColor=#000000;strokeColor=#333333;strokeWidth=1.5;" target="D7J_qoddyd96t-30_hCu-5" value="4: obtenerSaldoPendiente(idPropietario) ⬆&lt;br&gt;&lt;i&gt;4.1: return saldoPendiente()&lt;/i&gt; ⬇&lt;br&gt;8: actualizarEstadoCuenta(idPropietario) ⬆">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="D7J_qoddyd96t-30_hCu-11" edge="1" parent="1" source="D7J_qoddyd96t-30_hCu-3" style="edgeStyle=straight;endArrow=none;html=1;rounded=0;fontSize=11;labelBackgroundColor=default;fontColor=#000000;strokeColor=#333333;strokeWidth=1.5;" target="D7J_qoddyd96t-30_hCu-6" value="7: procesarPago(monto, datosTarjeta) ⬇&lt;br&gt;&lt;i&gt;7.1: return pagoAprobado()&lt;/i&gt; ⬆">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="D7J_qoddyd96t-30_hCu-12" edge="1" parent="1" source="D7J_qoddyd96t-30_hCu-4" style="edgeStyle=straight;endArrow=none;html=1;rounded=0;fontSize=11;labelBackgroundColor=default;fontColor=#000000;strokeColor=#333333;strokeWidth=1.5;" target="D7J_qoddyd96t-30_hCu-7" value="9: guardarRegistroPago(pago) ➔&lt;br&gt;&lt;i&gt;9.1: return registroExitoso()&lt;/i&gt; ⬅">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="DvPZEo5mB-ugiYaSZiLR-1" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=14;fontColor=#333333;" value="&lt;b&gt;Diagrama de Comunicación UML&lt;/b&gt;&lt;br&gt;UC17 - Solicitar Reserva de Zona Común (Módulo 3)" vertex="1">
+          <mxGeometry height="40" width="400" x="309" y="1395" as="geometry" />
+        </mxCell>
+        <mxCell id="DvPZEo5mB-ugiYaSZiLR-2" parent="1" style="html=1;whiteSpace=wrap;rounded=0;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;align=center;" value="&lt;u&gt;residente:Residente&lt;/u&gt;" vertex="1">
+          <mxGeometry height="60" width="160" x="-511" y="1265" as="geometry" />
+        </mxCell>
+        <mxCell id="DvPZEo5mB-ugiYaSZiLR-3" parent="1" style="html=1;whiteSpace=wrap;rounded=0;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;align=center;" value="&lt;u&gt;interfaz:InterfazReserva&lt;/u&gt;" vertex="1">
+          <mxGeometry height="60" width="180" x="29" y="1265" as="geometry" />
+        </mxCell>
+        <mxCell id="DvPZEo5mB-ugiYaSZiLR-4" parent="1" style="html=1;whiteSpace=wrap;rounded=0;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;align=center;" value="&lt;u&gt;sistema:SistemaCondominio&lt;/u&gt;" vertex="1">
+          <mxGeometry height="60" width="180" x="529" y="1265" as="geometry" />
+        </mxCell>
+        <mxCell id="DvPZEo5mB-ugiYaSZiLR-5" parent="1" style="html=1;whiteSpace=wrap;rounded=0;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;align=center;" value="&lt;u&gt;zona:ZonaComun&lt;/u&gt;" vertex="1">
+          <mxGeometry height="60" width="160" x="1179" y="1145" as="geometry" />
+        </mxCell>
+        <mxCell id="DvPZEo5mB-ugiYaSZiLR-6" parent="1" style="html=1;whiteSpace=wrap;rounded=0;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;align=center;" value="&lt;u&gt;cuenta:CuentaPago&lt;/u&gt;" vertex="1">
+          <mxGeometry height="60" width="160" x="1179" y="1265" as="geometry" />
+        </mxCell>
+        <mxCell id="DvPZEo5mB-ugiYaSZiLR-7" parent="1" style="html=1;whiteSpace=wrap;rounded=0;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;align=center;" value="&lt;u&gt;bd:BaseDatos&lt;/u&gt;" vertex="1">
+          <mxGeometry height="60" width="160" x="1179" y="1385" as="geometry" />
+        </mxCell>
+        <mxCell id="DvPZEo5mB-ugiYaSZiLR-8" edge="1" parent="1" source="DvPZEo5mB-ugiYaSZiLR-2" style="endArrow=none;html=1;strokeWidth=1.5;rounded=0;labelBackgroundColor=default;fontSize=10;align=center;" target="DvPZEo5mB-ugiYaSZiLR-3" value="1: abrirModuloReservas() ➔&lt;br&gt;2: seleccionarZona(idZona, fecha, hora) ➔&lt;br&gt;7: confirmarReserva(idZona, fecha, hora) ➔&lt;br&gt;⭠ 11: mostrarConfirmacionReserva()">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="DvPZEo5mB-ugiYaSZiLR-9" edge="1" parent="1" source="DvPZEo5mB-ugiYaSZiLR-3" style="endArrow=none;html=1;strokeWidth=1.5;rounded=0;labelBackgroundColor=default;fontSize=10;align=center;" target="DvPZEo5mB-ugiYaSZiLR-4" value="3: verificarDisponibilidad(idZona, fecha, hora) ➔&lt;br&gt;⭠ 6: mostrarDisponibilidad(horarios)&lt;br&gt;8: crearReserva(datos) ➔">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="DvPZEo5mB-ugiYaSZiLR-10" edge="1" parent="1" source="DvPZEo5mB-ugiYaSZiLR-4" style="endArrow=none;html=1;strokeWidth=1.5;rounded=0;labelBackgroundColor=default;fontSize=10;align=center;" target="DvPZEo5mB-ugiYaSZiLR-5" value="4: consultarAgenda(idZona, fecha) ➔&lt;br&gt;⤎ 4.1: return zonaDisponible()&lt;br&gt;9: bloquearHorario(idZona, fecha, hora) ➔">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="DvPZEo5mB-ugiYaSZiLR-11" edge="1" parent="1" source="DvPZEo5mB-ugiYaSZiLR-4" style="endArrow=none;html=1;strokeWidth=1.5;rounded=0;labelBackgroundColor=default;fontSize=10;align=center;" target="DvPZEo5mB-ugiYaSZiLR-6" value="5: verificarEstadoCuenta(idResidente) ➔&lt;br&gt;⤎ 5.1: return sinMora()">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="DvPZEo5mB-ugiYaSZiLR-12" edge="1" parent="1" source="DvPZEo5mB-ugiYaSZiLR-4" style="endArrow=none;html=1;strokeWidth=1.5;rounded=0;labelBackgroundColor=default;fontSize=10;align=center;" target="DvPZEo5mB-ugiYaSZiLR-7" value="10: guardarReserva(reserva) ➔&lt;br&gt;⤎ 10.1: return reservaExitosa()">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="_RivIPjT7jww47yxbnzx-1" parent="1" style="html=1;whiteSpace=wrap;rounded=0;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=12;fontFamily=Helvetica;" value="&lt;b&gt;&lt;u&gt;residente:Residente&lt;/u&gt;&lt;/b&gt;" vertex="1">
+          <mxGeometry height="60" width="160" x="-671" y="1690" as="geometry" />
+        </mxCell>
+        <mxCell id="_RivIPjT7jww47yxbnzx-2" parent="1" style="html=1;whiteSpace=wrap;rounded=0;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=12;fontFamily=Helvetica;" value="&lt;b&gt;&lt;u&gt;interfaz:InterfazMantenimiento&lt;/u&gt;&lt;/b&gt;" vertex="1">
+          <mxGeometry height="60" width="220" x="-150" y="1680" as="geometry" />
+        </mxCell>
+        <mxCell id="_RivIPjT7jww47yxbnzx-3" parent="1" style="html=1;whiteSpace=wrap;rounded=0;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=12;fontFamily=Helvetica;" value="&lt;b&gt;&lt;u&gt;sistema:SistemaCondominio&lt;/u&gt;&lt;/b&gt;" vertex="1">
+          <mxGeometry height="60" width="200" x="290" y="1680" as="geometry" />
+        </mxCell>
+        <mxCell id="_RivIPjT7jww47yxbnzx-4" parent="1" style="html=1;whiteSpace=wrap;rounded=0;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=12;fontFamily=Helvetica;" value="&lt;b&gt;&lt;u&gt;orden:OrdenTrabajo&lt;/u&gt;&lt;/b&gt;" vertex="1">
+          <mxGeometry height="60" width="160" x="760" y="1550" as="geometry" />
+        </mxCell>
+        <mxCell id="_RivIPjT7jww47yxbnzx-5" parent="1" style="html=1;whiteSpace=wrap;rounded=0;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=12;fontFamily=Helvetica;" value="&lt;b&gt;&lt;u&gt;tecnico:Tecnico&lt;/u&gt;&lt;/b&gt;" vertex="1">
+          <mxGeometry height="60" width="160" x="770" y="1700" as="geometry" />
+        </mxCell>
+        <mxCell id="_RivIPjT7jww47yxbnzx-6" parent="1" style="html=1;whiteSpace=wrap;rounded=0;fillColor=#f5f5f5;strokeColor=#666666;strokeWidth=2;fontSize=12;fontFamily=Helvetica;" value="&lt;b&gt;&lt;u&gt;bd:BaseDatos&lt;/u&gt;&lt;/b&gt;" vertex="1">
+          <mxGeometry height="60" width="160" x="770" y="1820" as="geometry" />
+        </mxCell>
+        <mxCell id="_RivIPjT7jww47yxbnzx-7" edge="1" parent="1" source="_RivIPjT7jww47yxbnzx-1" style="endArrow=none;html=1;strokeWidth=1.5;strokeColor=#333333;labelBackgroundColor=#ffffff;fontSize=11;fontFamily=Helvetica;rounded=0;" target="_RivIPjT7jww47yxbnzx-2" value="1: abrirModuloMantenimiento() &amp;rarr;&lt;br&gt;2: ingresarReporte(descripcion, area, foto) &amp;rarr;&lt;br&gt;8: mostrarNumeroRadicado(idOrden) &amp;larr;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="_RivIPjT7jww47yxbnzx-8" edge="1" parent="1" source="_RivIPjT7jww47yxbnzx-2" style="endArrow=none;html=1;strokeWidth=1.5;strokeColor=#333333;labelBackgroundColor=#ffffff;fontSize=11;fontFamily=Helvetica;rounded=0;" target="_RivIPjT7jww47yxbnzx-3" value="3: enviarReporte(datos) &amp;rarr;&lt;br&gt;7: notificarRadicado(idOrden) &amp;larr;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="_RivIPjT7jww47yxbnzx-9" edge="1" parent="1" source="_RivIPjT7jww47yxbnzx-3" style="endArrow=none;html=1;strokeWidth=1.5;strokeColor=#333333;labelBackgroundColor=#ffffff;fontSize=11;fontFamily=Helvetica;rounded=0;" target="_RivIPjT7jww47yxbnzx-4" value="4: crearOrdenTrabajo(descripcion, area, prioridad) &amp;rarr;&lt;br&gt;4.1: return ordenCreada(idOrden) &amp;larr;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="_RivIPjT7jww47yxbnzx-10" edge="1" parent="1" source="_RivIPjT7jww47yxbnzx-3" style="endArrow=none;html=1;strokeWidth=1.5;strokeColor=#333333;labelBackgroundColor=#ffffff;fontSize=11;fontFamily=Helvetica;rounded=0;" target="_RivIPjT7jww47yxbnzx-5" value="5: asignarTecnico(idOrden) &amp;rarr;&lt;br&gt;5.1: return tecnicoAsignado() &amp;larr;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="_RivIPjT7jww47yxbnzx-11" edge="1" parent="1" source="_RivIPjT7jww47yxbnzx-3" style="endArrow=none;html=1;strokeWidth=1.5;strokeColor=#333333;labelBackgroundColor=#ffffff;fontSize=11;fontFamily=Helvetica;rounded=0;" target="_RivIPjT7jww47yxbnzx-6" value="6: guardarOrden(orden) &amp;rarr;&lt;br&gt;6.1: return registroExitoso() &amp;larr;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="45MaLk_ZOyMh9hZGwEIt-1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e8f4f8;strokeColor=#385e72;fontColor=#333333;fontStyle=1;" value="&lt;u&gt;residente:Residente&lt;/u&gt;" vertex="1">
+          <mxGeometry height="60" width="160" x="-730" y="2100" as="geometry" />
+        </mxCell>
+        <mxCell id="45MaLk_ZOyMh9hZGwEIt-2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e8f4f8;strokeColor=#385e72;fontColor=#333333;fontStyle=1;" value="&lt;u&gt;interfaz:InterfazPQR&lt;/u&gt;" vertex="1">
+          <mxGeometry height="60" width="160" x="-240" y="2100" as="geometry" />
+        </mxCell>
+        <mxCell id="45MaLk_ZOyMh9hZGwEIt-3" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e8f4f8;strokeColor=#385e72;fontColor=#333333;fontStyle=1;" value="&lt;u&gt;sistema:SistemaCondominio&lt;/u&gt;" vertex="1">
+          <mxGeometry height="60" width="200" x="220" y="2090" as="geometry" />
+        </mxCell>
+        <mxCell id="45MaLk_ZOyMh9hZGwEIt-4" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e8f4f8;strokeColor=#385e72;fontColor=#333333;fontStyle=1;" value="&lt;u&gt;pqr:PQR&lt;/u&gt;" vertex="1">
+          <mxGeometry height="60" width="160" x="930" y="1940" as="geometry" />
+        </mxCell>
+        <mxCell id="45MaLk_ZOyMh9hZGwEIt-5" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e8f4f8;strokeColor=#385e72;fontColor=#333333;fontStyle=1;" value="&lt;u&gt;bd:BaseDatos&lt;/u&gt;" vertex="1">
+          <mxGeometry height="60" width="160" x="1190" y="1940" as="geometry" />
+        </mxCell>
+        <mxCell id="45MaLk_ZOyMh9hZGwEIt-6" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e8f4f8;strokeColor=#385e72;fontColor=#333333;fontStyle=1;" value="&lt;u&gt;admin:Administrador&lt;/u&gt;" vertex="1">
+          <mxGeometry height="60" width="160" x="510" y="1940" as="geometry" />
+        </mxCell>
+        <mxCell id="45MaLk_ZOyMh9hZGwEIt-7" edge="1" parent="1" source="45MaLk_ZOyMh9hZGwEIt-1" style="endArrow=none;html=1;rounded=0;labelBackgroundColor=#ffffff;fontColor=#333333;strokeColor=#385e72;strokeWidth=1.5;edgeStyle=orthogonalEdgeStyle;" target="45MaLk_ZOyMh9hZGwEIt-2" value="1: abrirModuloPQR() ➔&lt;br&gt;2: ingresarPQR(tipo, categoria, descripcion, foto) ➔&lt;br&gt;← 8: confirmarRadicacion(idRadicado)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="45MaLk_ZOyMh9hZGwEIt-8" edge="1" parent="1" source="45MaLk_ZOyMh9hZGwEIt-2" style="endArrow=none;html=1;rounded=0;labelBackgroundColor=#ffffff;fontColor=#333333;strokeColor=#385e72;strokeWidth=1.5;edgeStyle=orthogonalEdgeStyle;" target="45MaLk_ZOyMh9hZGwEIt-3" value="3: enviarPQR(datos) ➔&lt;br&gt;← 7: mostrarNumeroRadicado(idRadicado)">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="45MaLk_ZOyMh9hZGwEIt-9" edge="1" parent="1" source="45MaLk_ZOyMh9hZGwEIt-3" style="endArrow=none;html=1;rounded=0;labelBackgroundColor=#ffffff;fontColor=#333333;strokeColor=#385e72;strokeWidth=1.5;edgeStyle=orthogonalEdgeStyle;" target="45MaLk_ZOyMh9hZGwEIt-4" value="4: crearPQR(tipo, categoria, descripcion) ➔&lt;br&gt;⤎ 4.1: return PQRCreada(idRadicado)">
+          <mxGeometry relative="1" x="0.0986" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="45MaLk_ZOyMh9hZGwEIt-10" edge="1" parent="1" source="45MaLk_ZOyMh9hZGwEIt-3" style="endArrow=none;html=1;rounded=0;labelBackgroundColor=#ffffff;fontColor=#333333;strokeColor=#385e72;strokeWidth=1.5;edgeStyle=orthogonalEdgeStyle;entryX=0.412;entryY=0.961;entryDx=0;entryDy=0;entryPerimeter=0;exitX=0.422;exitY=0.976;exitDx=0;exitDy=0;exitPerimeter=0;" target="45MaLk_ZOyMh9hZGwEIt-5" value="5: guardarPQR(pqr) ➔&lt;br&gt;⤎ 5.1: return registroExitoso()">
+          <mxGeometry relative="1" x="0.8898" y="6" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="310" y="2149" />
+              <mxPoint x="310" y="2230" />
+              <mxPoint x="1260" y="2230" />
+              <mxPoint x="1260" y="2148" />
+              <mxPoint x="1256" y="2148" />
+            </Array>
+            <mxPoint x="310.00000000000045" y="2190" as="sourcePoint" />
+            <mxPoint x="1280.0000000000005" y="2190" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="45MaLk_ZOyMh9hZGwEIt-11" edge="1" parent="1" source="45MaLk_ZOyMh9hZGwEIt-3" style="endArrow=none;html=1;rounded=0;labelBackgroundColor=#ffffff;fontColor=#333333;strokeColor=#385e72;strokeWidth=1.5;edgeStyle=orthogonalEdgeStyle;" target="45MaLk_ZOyMh9hZGwEIt-6" value="6: notificarNuevaPQR(idRadicado) ➔">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
