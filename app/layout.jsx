@@ -1,4 +1,4 @@
-import { ColorSchemeScript, MantineProvider, createTheme } from '@mantine/core'
+import { MantineProvider, createTheme } from '@mantine/core'
 import { Notifications } from '@mantine/notifications'
 import { AuthProvider } from '../context/AuthContext'
 import '@mantine/core/styles.css'
@@ -56,13 +56,12 @@ export default function RootLayout({ children }) {
   return (
     <html lang="es" suppressHydrationWarning>
       <head>
-        <ColorSchemeScript />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
       </head>
       <body>
-        <MantineProvider theme={theme}>
+        <MantineProvider theme={theme} defaultColorScheme="light">
           <Notifications position="top-right" zIndex={9999} />
           <AuthProvider>
             {children}

@@ -10,10 +10,9 @@ import { useDisclosure } from '@mantine/hooks'
 import {
   Plus, Search, X, User, Mail, Car, Home, ChevronRight
 } from 'lucide-react'
-import { supabase } from '../../../services/supabaseClient'
 import { useAuth } from '../../../context/AuthContext'
-
-// ─── Constantes ───────────────────────────────────────────────────────────────
+import { getUsuarios, getVehiculosByPropietario, createUsuario } from '@/supabase/helpers/usuarios'
+import { getUnidadesByPropietario } from '@/supabase/helpers/unidades'
 
 const ROLES = ['propietario', 'residente']
 
@@ -26,58 +25,29 @@ const rolColor = {
 
 const FORM_INICIAL = { nombre: '', email: '', telefono: '', documento: '', rol: 'propietario' }
 
-// ─── Página principal ─────────────────────────────────────────────────────────
-
 export default function PropietariosPage() {
   const { rol: rolUsuario } = useAuth()
 
-  // ── Estado de datos ─────────────────────────────────────────────────────────
   const [usuarios, setUsuarios] = useState([])
   const [loading, setLoading] = useState(true)
-
-  // ── Filtros ─────────────────────────────────────────────────────────────────
   const [busqueda, setBusqueda] = useState('')
   const [filtroBusqueda, setFiltroBusqueda] = useState('')
   const [filtroRol, setFiltroRol] = useState('')
 
-  // ── Drawer detalle ──────────────────────────────────────────────────────────
   const [drawerAbierto, { open: abrirDrawer, close: cerrarDrawer }] = useDisclosure(false)
   const [usuarioSeleccionado, setUsuarioSeleccionado] = useState(null)
   const [unidadesUsuario, setUnidadesUsuario] = useState([])
   const [vehiculosUsuario, setVehiculosUsuario] = useState([])
   const [cargandoDetalle, setCargandoDetalle] = useState(false)
 
-  // ── Modal crear ─────────────────────────────────────────────────────────────
   const [modalAbierto, { open: abrirModal, close: cerrarModal }] = useDisclosure(false)
   const [form, setForm] = useState(FORM_INICIAL)
   const [guardando, setGuardando] = useState(false)
 
-  // ── Carga usuarios ──────────────────────────────────────────────────────────
   const cargarUsuarios = useCallback(async () => {
     setLoading(true)
     try {
-      let query = supabase
-        .from('usuarios')
-        .select('id, nombre, email, telefono, documento, rol, created_at')
-        .in('rol', ROLES)
-        .order('nombre')
-
-      if (filtroBusqueda) {
-        query = query.or(`nombre.ilike.%${filtroBusqueda}%,email.ilike.%${filtroBusqueda}%`)
-      }
-      if (filtroRol) query = query.eq('rol', filtroRol)
-
-      let { data, error } = await query
-      if (error?.code === '42703') {
-        // Fallback temporal si el esquema aún no tiene telefono/documento.
-        const fallback = await supabase
-          .from('usuarios')
-          .select('id, nombre, email, rol, created_at')
-          .in('rol', ROLES)
-          .order('nombre')
-        data = (fallback.data ?? []).map((u) => ({ ...u, telefono: null, documento: null }))
-        error = fallback.error
-      }
+      const { data, error } = await getUsuarios({ roles: ROLES, busqueda: filtroBusqueda, filtroRol })
       if (error) throw error
       setUsuarios(data ?? [])
     } catch (err) {
@@ -89,39 +59,25 @@ export default function PropietariosPage() {
 
   useEffect(() => { cargarUsuarios() }, [cargarUsuarios])
 
-  // ── Abrir drawer con detalle ─────────────────────────────────────────────────
   async function verDetalle(u) {
     setUsuarioSeleccionado(u)
     abrirDrawer()
     setCargandoDetalle(true)
     try {
-      const [{ data: unidades }, vehiculosResult] = await Promise.all([
-        supabase
-          .from('unidades')
-          .select('id, numero, torre, tipo, estado')
-          .eq('propietario_id', u.id),
-        supabase
-          .from('vehiculos')
-          .select('id, placa, tipo, marca, modelo, color')
-          .eq('propietario_id', u.id),
+      const [{ data: unidades }, { data: vehiculos, error: errV }] = await Promise.all([
+        getUnidadesByPropietario(u.id),
+        getVehiculosByPropietario(u.id),
       ])
 
-      let vehiculos = vehiculosResult.data
-      if (vehiculosResult.error?.code === '42703') {
+      let vehiculosFinales = vehiculos
+      if (errV?.code === '42703') {
         const unidadesIds = (unidades ?? []).map((x) => x.id)
-        if (unidadesIds.length > 0) {
-          const fallback = await supabase
-            .from('vehiculos')
-            .select('id, placa, tipo')
-            .in('id_unidad', unidadesIds)
-          vehiculos = (fallback.data ?? []).map((v) => ({ ...v, marca: null, modelo: null, color: null }))
-        } else {
-          vehiculos = []
-        }
+        const { data: fallbackV } = await getVehiculosByPropietario(u.id, unidadesIds)
+        vehiculosFinales = fallbackV ?? []
       }
 
       setUnidadesUsuario(unidades ?? [])
-      setVehiculosUsuario(vehiculos ?? [])
+      setVehiculosUsuario(vehiculosFinales ?? [])
     } catch (err) {
       notifications.show({ color: 'red', title: 'Error', message: err.message })
     } finally {
@@ -129,7 +85,6 @@ export default function PropietariosPage() {
     }
   }
 
-  // ── Crear usuario ────────────────────────────────────────────────────────────
   function setField(campo, valor) {
     setForm((prev) => ({ ...prev, [campo]: valor }))
   }
@@ -145,21 +100,13 @@ export default function PropietariosPage() {
     }
     setGuardando(true)
     try {
-      let { error } = await supabase.from('usuarios').insert([{
+      const { error } = await createUsuario({
         nombre: form.nombre.trim(),
         email: form.email.trim().toLowerCase(),
         telefono: form.telefono.trim() || null,
         documento: form.documento.trim() || null,
         rol: form.rol,
-      }])
-      if (error?.code === '42703') {
-        const fallback = await supabase.from('usuarios').insert([{
-          nombre: form.nombre.trim(),
-          email: form.email.trim().toLowerCase(),
-          rol: form.rol,
-        }])
-        error = fallback.error
-      }
+      })
       if (error) throw error
       notifications.show({ color: 'green', title: 'Usuario creado', message: `${form.nombre} registrado correctamente.` })
       setForm(FORM_INICIAL)
@@ -182,7 +129,6 @@ export default function PropietariosPage() {
   return (
     <>
       <Stack gap="lg">
-        {/* Cabecera */}
         <Group justify="space-between" wrap="wrap" gap="sm">
           <Stack gap={2}>
             <Title order={3}>Propietarios y Residentes</Title>
@@ -195,7 +141,6 @@ export default function PropietariosPage() {
           )}
         </Group>
 
-        {/* Filtros */}
         <Paper p="md" radius="md" withBorder>
           <Grid gutter="sm" align="flex-end">
             <Grid.Col span={{ base: 12, sm: 6 }}>
@@ -232,7 +177,6 @@ export default function PropietariosPage() {
           </Grid>
         </Paper>
 
-        {/* Tabla */}
         <Paper shadow="sm" radius="md" withBorder style={{ overflow: 'hidden' }}>
           {loading ? (
             <Center h={300}><Loader size="md" /></Center>
@@ -287,7 +231,6 @@ export default function PropietariosPage() {
         </Paper>
       </Stack>
 
-      {/* ── Drawer detalle usuario ──────────────────────────────────────────────── */}
       <Drawer
         opened={drawerAbierto}
         onClose={cerrarDrawer}
@@ -310,7 +253,6 @@ export default function PropietariosPage() {
           <Center h={200}><Loader size="md" /></Center>
         ) : (
           <Stack gap="lg" pt="sm">
-            {/* Info básica */}
             <Paper p="md" radius="md" withBorder>
               <Stack gap="xs">
                 <Text size="xs" c="dimmed" tt="uppercase" fw={600}>Información personal</Text>
@@ -339,7 +281,6 @@ export default function PropietariosPage() {
               </Stack>
             </Paper>
 
-            {/* Unidades */}
             <Box>
               <Group gap="xs" mb="sm">
                 <Home size={16} />
@@ -366,7 +307,6 @@ export default function PropietariosPage() {
               )}
             </Box>
 
-            {/* Vehículos */}
             <Box>
               <Group gap="xs" mb="sm">
                 <Car size={16} />
@@ -394,7 +334,6 @@ export default function PropietariosPage() {
         )}
       </Drawer>
 
-      {/* ── Modal crear usuario ─────────────────────────────────────────────────── */}
       <Modal
         opened={modalAbierto}
         onClose={cerrarModal}
@@ -404,33 +343,10 @@ export default function PropietariosPage() {
         overlayProps={{ blur: 3 }}
       >
         <Stack gap="sm">
-          <TextInput
-            label="Nombre completo"
-            placeholder="Ej: Juan García"
-            required
-            value={form.nombre}
-            onChange={(e) => setField('nombre', e.target.value)}
-          />
-          <TextInput
-            label="Email"
-            placeholder="correo@ejemplo.com"
-            required
-            type="email"
-            value={form.email}
-            onChange={(e) => setField('email', e.target.value)}
-          />
-          <TextInput
-            label="Teléfono"
-            placeholder="3001234567"
-            value={form.telefono}
-            onChange={(e) => setField('telefono', e.target.value)}
-          />
-          <TextInput
-            label="Documento de identidad"
-            placeholder="CC / NIT"
-            value={form.documento}
-            onChange={(e) => setField('documento', e.target.value)}
-          />
+          <TextInput label="Nombre completo" placeholder="Ej: Juan García" required value={form.nombre} onChange={(e) => setField('nombre', e.target.value)} />
+          <TextInput label="Email" placeholder="correo@ejemplo.com" required type="email" value={form.email} onChange={(e) => setField('email', e.target.value)} />
+          <TextInput label="Teléfono" placeholder="3001234567" value={form.telefono} onChange={(e) => setField('telefono', e.target.value)} />
+          <TextInput label="Documento de identidad" placeholder="CC / NIT" value={form.documento} onChange={(e) => setField('documento', e.target.value)} />
           <Select
             label="Rol"
             required

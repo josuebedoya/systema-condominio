@@ -10,10 +10,14 @@ import { useDisclosure } from '@mantine/hooks'
 import { Plus, Wrench, AlertTriangle, ArrowRight } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { supabase } from '../../../services/supabaseClient'
 import { useAuth } from '../../../context/AuthContext'
-
-// ─── Constantes ───────────────────────────────────────────────────────────────
+import {
+  getOrdenesTrabajo,
+  getTecnicos,
+  createOrdenTrabajo,
+  updateOrdenEstado,
+  asignarTecnico,
+} from '@/supabase/helpers/mantenimiento'
 
 const ESTADOS_ORDEN = ['creada', 'asignada', 'en_proceso', 'terminada']
 
@@ -42,8 +46,6 @@ const PRIORIDADES = ['urgente', 'alta', 'media', 'baja']
 
 const FORM_INICIAL = { descripcion: '', area: '', prioridad: 'media' }
 
-// ─── Tarjeta de solicitud ──────────────────────────────────────────────────────
-
 function SolicitudCard({ solicitud, esAdmin, tecnicos, onAvanzar, onAsignar }) {
   const [tecnico, setTecnico] = useState(solicitud.id_tecnico ?? '')
   const [asignando, setAsignando] = useState(false)
@@ -52,7 +54,6 @@ function SolicitudCard({ solicitud, esAdmin, tecnicos, onAvanzar, onAsignar }) {
   const estadoActual = solicitud.estado
   const puedeAvanzar = estadoActual !== 'terminada'
   const estadoSiguiente = ESTADOS_ORDEN[ESTADOS_ORDEN.indexOf(estadoActual) + 1]
-
 
   async function handleAsignar() {
     if (!tecnico) return notifications.show({ color: 'yellow', message: 'Selecciona un técnico.' })
@@ -75,9 +76,7 @@ function SolicitudCard({ solicitud, esAdmin, tecnicos, onAvanzar, onAsignar }) {
             {solicitud.prioridad}
           </Badge>
           <Text size="xs" c="dimmed">
-            {solicitud.created_at
-              ? format(parseISO(solicitud.created_at), 'dd MMM', { locale: es })
-              : ''}
+            {solicitud.created_at ? format(parseISO(solicitud.created_at), 'dd MMM', { locale: es }) : ''}
           </Text>
         </Group>
 
@@ -85,14 +84,8 @@ function SolicitudCard({ solicitud, esAdmin, tecnicos, onAvanzar, onAsignar }) {
           {solicitud.descripcion}
         </Text>
 
-        {solicitud.area && (
-          <Text size="xs" c="dimmed">Área: {solicitud.area}</Text>
-        )}
-
-        {solicitud.usuarios && (
-          <Text size="xs" c="dimmed">Por: {solicitud.usuarios.nombre}</Text>
-        )}
-
+        {solicitud.area && <Text size="xs" c="dimmed">Área: {solicitud.area}</Text>}
+        {solicitud.usuarios && <Text size="xs" c="dimmed">Por: {solicitud.usuarios.nombre}</Text>}
         {solicitud.id_tecnico && solicitud.tecnicos && (
           <Text size="xs" c="teal">Técnico: {solicitud.tecnicos.nombre}</Text>
         )}
@@ -115,27 +108,13 @@ function SolicitudCard({ solicitud, esAdmin, tecnicos, onAvanzar, onAsignar }) {
         )}
 
         {esAdmin && puedeAvanzar && estadoActual !== 'creada' && (
-          <Button
-            size="xs"
-            variant="light"
-            color={ESTADO_COLOR[estadoSiguiente] ?? 'gray'}
-            loading={avanzando}
-            rightSection={<ArrowRight size={12} />}
-            onClick={handleAvanzar}
-          >
+          <Button size="xs" variant="light" color={ESTADO_COLOR[estadoSiguiente] ?? 'gray'} loading={avanzando} rightSection={<ArrowRight size={12} />} onClick={handleAvanzar}>
             Pasar a {ESTADO_LABEL[estadoSiguiente]}
           </Button>
         )}
 
         {!esAdmin && puedeAvanzar && (
-          <Button
-            size="xs"
-            variant="light"
-            color={ESTADO_COLOR[estadoSiguiente] ?? 'gray'}
-            loading={avanzando}
-            rightSection={<ArrowRight size={12} />}
-            onClick={handleAvanzar}
-          >
+          <Button size="xs" variant="light" color={ESTADO_COLOR[estadoSiguiente] ?? 'gray'} loading={avanzando} rightSection={<ArrowRight size={12} />} onClick={handleAvanzar}>
             Marcar: {ESTADO_LABEL[estadoSiguiente]}
           </Button>
         )}
@@ -144,34 +123,22 @@ function SolicitudCard({ solicitud, esAdmin, tecnicos, onAvanzar, onAsignar }) {
   )
 }
 
-// ─── Página principal ─────────────────────────────────────────────────────────
-
 export default function MantenimientoPage() {
   const { perfil, rol } = useAuth()
   const esAdmin = rol === 'administrador'
 
-  // ── Datos ────────────────────────────────────────────────────────────────────
   const [solicitudes, setSolicitudes] = useState([])
   const [tecnicos, setTecnicos] = useState([])
   const [loading, setLoading] = useState(true)
 
-  // ── Modal reportar daño ────────────────────────────────────────────────────────
   const [modalAbierto, { open: abrirModal, close: cerrarModal }] = useDisclosure(false)
   const [form, setForm] = useState(FORM_INICIAL)
   const [guardando, setGuardando] = useState(false)
 
-  // ── Cargar datos ──────────────────────────────────────────────────────────────
   const cargarSolicitudes = useCallback(async () => {
     setLoading(true)
     try {
-      const { data, error } = await supabase
-        .from('ordenes_trabajo')
-        .select(`
-          id, descripcion, area, prioridad, estado, created_at, id_tecnico,
-          usuarios:id_reportado_por(nombre),
-          tecnicos:id_tecnico(nombre)
-        `)
-        .order('created_at', { ascending: false })
+      const { data, error } = await getOrdenesTrabajo()
       if (error) throw error
       setSolicitudes(data ?? [])
     } catch (err) {
@@ -182,11 +149,7 @@ export default function MantenimientoPage() {
   }, [])
 
   const cargarTecnicos = useCallback(async () => {
-    const { data } = await supabase
-      .from('usuarios')
-      .select('id, nombre')
-      .in('rol', ['tecnico', 'administrador'])
-      .order('nombre')
+    const { data } = await getTecnicos()
     setTecnicos(data ?? [])
   }, [])
 
@@ -195,7 +158,6 @@ export default function MantenimientoPage() {
     if (esAdmin) cargarTecnicos()
   }, [cargarSolicitudes, cargarTecnicos, esAdmin])
 
-  // ── Crear solicitud ────────────────────────────────────────────────────────────
   function setField(campo, valor) {
     setForm((prev) => ({ ...prev, [campo]: valor }))
   }
@@ -207,13 +169,13 @@ export default function MantenimientoPage() {
     }
     setGuardando(true)
     try {
-      const { error } = await supabase.from('ordenes_trabajo').insert([{
+      const { error } = await createOrdenTrabajo({
         descripcion: form.descripcion.trim(),
         area: form.area.trim() || null,
         prioridad: form.prioridad,
         estado: 'creada',
         id_reportado_por: perfil?.id ?? null,
-      }])
+      })
       if (error) throw error
       notifications.show({ color: 'green', title: 'Solicitud creada', message: 'El daño fue reportado correctamente.' })
       setForm(FORM_INICIAL)
@@ -226,13 +188,9 @@ export default function MantenimientoPage() {
     }
   }
 
-  // ── Avanzar estado ─────────────────────────────────────────────────────────────
   async function handleAvanzar(id, nuevoEstado) {
     try {
-      const { error } = await supabase
-        .from('ordenes_trabajo')
-        .update({ estado: nuevoEstado })
-        .eq('id', id)
+      const { error } = await updateOrdenEstado(id, nuevoEstado)
       if (error) throw error
       notifications.show({ color: 'green', message: `Estado actualizado a "${ESTADO_LABEL[nuevoEstado]}".` })
       cargarSolicitudes()
@@ -241,13 +199,9 @@ export default function MantenimientoPage() {
     }
   }
 
-  // ── Asignar técnico ────────────────────────────────────────────────────────────
   async function handleAsignar(id, tecnicoId) {
     try {
-      const { error } = await supabase
-        .from('ordenes_trabajo')
-        .update({ id_tecnico: tecnicoId, estado: 'asignada' })
-        .eq('id', id)
+      const { error } = await asignarTecnico(id, tecnicoId)
       if (error) throw error
       notifications.show({ color: 'green', message: 'Técnico asignado correctamente.' })
       cargarSolicitudes()
@@ -264,7 +218,6 @@ export default function MantenimientoPage() {
   return (
     <>
       <Stack gap="lg">
-        {/* Cabecera */}
         <Group justify="space-between" wrap="wrap" gap="sm">
           <Stack gap={2}>
             <Title order={3}>Mantenimiento</Title>
@@ -275,31 +228,22 @@ export default function MantenimientoPage() {
           </Button>
         </Group>
 
-        {/* Kanban */}
         {loading ? (
           <Center h={300}><Loader size="md" /></Center>
         ) : (
           <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md">
             {columnas.map(({ estado, items }) => (
               <Stack key={estado} gap="sm">
-                {/* Cabecera columna */}
                 <Paper p="xs" radius="sm" bg={`${ESTADO_COLOR[estado]}.0`} withBorder>
                   <Group gap="xs" justify="space-between">
-                    <Text size="sm" fw={700} c={`${ESTADO_COLOR[estado]}.8`}>
-                      {ESTADO_LABEL[estado]}
-                    </Text>
-                    <Badge size="sm" color={ESTADO_COLOR[estado]} variant="filled" circle>
-                      {items.length}
-                    </Badge>
+                    <Text size="sm" fw={700} c={`${ESTADO_COLOR[estado]}.8`}>{ESTADO_LABEL[estado]}</Text>
+                    <Badge size="sm" color={ESTADO_COLOR[estado]} variant="filled" circle>{items.length}</Badge>
                   </Group>
                 </Paper>
 
-                {/* Tarjetas */}
                 {items.length === 0 ? (
                   <Paper p="md" radius="md" withBorder style={{ borderStyle: 'dashed' }}>
-                    <Center>
-                      <Text size="xs" c="dimmed">Sin solicitudes</Text>
-                    </Center>
+                    <Center><Text size="xs" c="dimmed">Sin solicitudes</Text></Center>
                   </Paper>
                 ) : (
                   items.map((s) => (
@@ -319,7 +263,6 @@ export default function MantenimientoPage() {
         )}
       </Stack>
 
-      {/* ── Modal reportar daño ─────────────────────────────────────────────────── */}
       <Modal
         opened={modalAbierto}
         onClose={cerrarModal}
@@ -334,27 +277,12 @@ export default function MantenimientoPage() {
         overlayProps={{ blur: 3 }}
       >
         <Stack gap="sm">
-          <Textarea
-            label="Descripción del daño"
-            placeholder="Describe detalladamente el problema..."
-            required
-            minRows={3}
-            value={form.descripcion}
-            onChange={(e) => setField('descripcion', e.target.value)}
-          />
-          <TextInput
-            label="Área o ubicación"
-            placeholder="Ej: Parqueadero, Zona verde, Escaleras..."
-            value={form.area}
-            onChange={(e) => setField('area', e.target.value)}
-          />
+          <Textarea label="Descripción del daño" placeholder="Describe detalladamente el problema..." required minRows={3} value={form.descripcion} onChange={(e) => setField('descripcion', e.target.value)} />
+          <TextInput label="Área o ubicación" placeholder="Ej: Parqueadero, Zona verde, Escaleras..." value={form.area} onChange={(e) => setField('area', e.target.value)} />
           <Select
             label="Prioridad"
             required
-            data={PRIORIDADES.map((p) => ({
-              value: p,
-              label: p.charAt(0).toUpperCase() + p.slice(1),
-            }))}
+            data={PRIORIDADES.map((p) => ({ value: p, label: p.charAt(0).toUpperCase() + p.slice(1) }))}
             value={form.prioridad}
             onChange={(v) => setField('prioridad', v ?? 'media')}
           />

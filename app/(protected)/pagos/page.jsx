@@ -10,8 +10,18 @@ import { useDisclosure } from '@mantine/hooks'
 import { DollarSign, CheckCircle2, Clock, AlertTriangle, Zap, X, Search } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { supabase } from '../../../services/supabaseClient'
 import { useAuth } from '../../../context/AuthContext'
+import {
+  getCuotas,
+  getUnidadesByPropietarioId,
+  enrichCuotasConUnidades,
+  getTarifas,
+  getUnidadesParaCobro,
+  getCuotasExistentes,
+  createCuotas,
+  createPago,
+  updateCuotaEstado,
+} from '@/supabase/helpers/pagos'
 
 const METODOS_PAGO = [
   { value: 'efectivo', label: 'Efectivo' },
@@ -33,6 +43,11 @@ function anioActual() { return String(new Date().getFullYear()) }
 function mesLabel(mesStr) {
   if (!mesStr) return '—'
   return format(parseISO(mesStr), "MMMM yyyy", { locale: es })
+}
+
+function tipoATarifa(tipo) {
+  if (tipo === 'local' || tipo === 'comercial') return 'comercial'
+  return 'residencial'
 }
 
 export default function PagosPage() {
@@ -61,91 +76,20 @@ export default function PagosPage() {
     try {
       const mesStr = `${filtroAnio}-${filtroMes}-01`
 
-      const getMisUnidadesIds = async () => {
-        let { data: misUnidades, error: errUnidades } = await supabase
-          .from('unidades').select('id').eq('propietario_id', perfil.id)
-        if (errUnidades?.code === '42703') {
-          const fallback = await supabase
-            .from('unidades').select('id').eq('id_propietario', perfil.id)
-          misUnidades = fallback.data
-          errUnidades = fallback.error
-        }
-        if (errUnidades) throw errUnidades
-        return (misUnidades ?? []).map((u) => u.id)
-      }
-
-      let query = supabase
-        .from('cuotas')
-        .select('id, id_unidad, mes, monto_base, interes_mora, estado, pagos(fecha, monto, metodo_pago)')
-        .eq('mes', mesStr)
-        .order('created_at', { ascending: false })
-
+      let unidadIds = undefined
       if (!esAdmin && perfil?.id) {
-        const ids = await getMisUnidadesIds()
-        if (ids.length === 0) { setCuotas([]); setLoading(false); return }
-        query = query.in('id_unidad', ids)
+        const { data: ids, error: errU } = await getUnidadesByPropietarioId(perfil.id)
+        if (errU) throw errU
+        if (!ids || ids.length === 0) { setCuotas([]); setLoading(false); return }
+        unidadIds = ids
       }
 
-      if (filtroEstado) query = query.eq('estado', filtroEstado)
-
-      const { data, error } = await query
+      const { data, error } = await getCuotas({ mesStr, filtroEstado, unidadIds, esAdmin })
       if (error) throw error
 
       const cuotasBase = data ?? []
-      const unidadIds = [...new Set(cuotasBase.map((c) => c.id_unidad).filter(Boolean))]
+      let resultado = await enrichCuotasConUnidades(cuotasBase)
 
-      let unidadesMap = new Map()
-      let ownerIds = []
-      if (unidadIds.length > 0) {
-        let { data: unidadesData, error: errUnidadesData } = await supabase
-          .from('unidades')
-          .select('id, numero, torre, propietario_id')
-          .in('id', unidadIds)
-
-        if (errUnidadesData?.code === '42703') {
-          const fallback = await supabase
-            .from('unidades')
-            .select('id, numero, torre, id_propietario')
-            .in('id', unidadIds)
-          unidadesData = (fallback.data ?? []).map((u) => ({
-            ...u,
-            propietario_id: u.id_propietario ?? null,
-          }))
-          errUnidadesData = fallback.error
-        }
-        if (errUnidadesData) throw errUnidadesData
-
-        unidadesMap = new Map((unidadesData ?? []).map((u) => [u.id, u]))
-        ownerIds = [...new Set((unidadesData ?? []).map((u) => u.propietario_id).filter(Boolean))]
-      }
-
-      let ownersMap = new Map()
-      if (ownerIds.length > 0) {
-        const { data: owners, error: errOwners } = await supabase
-          .from('usuarios')
-          .select('id, nombre, email')
-          .in('id', ownerIds)
-        if (errOwners) throw errOwners
-        ownersMap = new Map((owners ?? []).map((o) => [o.id, o]))
-      }
-
-      const resultadoConUnidades = cuotasBase.map((c) => {
-        const unidad = unidadesMap.get(c.id_unidad)
-        const owner = unidad?.propietario_id ? ownersMap.get(unidad.propietario_id) ?? null : null
-        return {
-          ...c,
-          unidades: unidad
-            ? {
-                numero: unidad.numero,
-                torre: unidad.torre,
-                propietario_id: unidad.propietario_id ?? null,
-                usuarios: owner,
-              }
-            : null,
-        }
-      })
-
-      let resultado = resultadoConUnidades
       if (busqueda) {
         const b = busqueda.toLowerCase()
         resultado = resultado.filter(c =>
@@ -153,6 +97,7 @@ export default function PagosPage() {
           c.unidades?.usuarios?.nombre?.toLowerCase().includes(b)
         )
       }
+
       setCuotas(resultado)
     } catch (err) {
       notifications.show({ color: 'red', title: 'Error al cargar cuotas', message: err.message })
@@ -163,17 +108,12 @@ export default function PagosPage() {
 
   useEffect(() => { cargarCuotas() }, [cargarCuotas])
 
-  function tipoATarifa(tipo) {
-    if (tipo === 'local' || tipo === 'comercial') return 'comercial'
-    return 'residencial'
-  }
-
   async function generarCobros() {
     setGenerando(true)
     try {
       const [{ data: unidades, error: errU }, { data: tarifas, error: errT }] = await Promise.all([
-        supabase.from('unidades').select('id, tipo').not('estado', 'in', '(inactivo,desocupada)'),
-        supabase.from('tarifas').select('tipo, monto_base'),
+        getUnidadesParaCobro(),
+        getTarifas(),
       ])
       if (errU) throw errU
       if (errT) throw errT
@@ -184,8 +124,7 @@ export default function PagosPage() {
       const tarifaMap = {}
       for (const t of tarifas ?? []) tarifaMap[t.tipo] = t.monto_base
 
-      const { data: existentes } = await supabase
-        .from('cuotas').select('id_unidad').eq('mes', mesStr)
+      const { data: existentes } = await getCuotasExistentes(mesStr)
       const existentesSet = new Set((existentes ?? []).map(e => e.id_unidad))
 
       const nuevas = (unidades ?? [])
@@ -202,7 +141,7 @@ export default function PagosPage() {
         return
       }
 
-      const { error } = await supabase.from('cuotas').insert(nuevas)
+      const { error } = await createCuotas(nuevas)
       if (error) throw error
 
       notifications.show({ color: 'green', title: 'Cobros generados', message: `${nuevas.length} cuota(s) creadas para ${MESES[mesNum - 1]} ${anioNum}.` })
@@ -231,14 +170,14 @@ export default function PagosPage() {
     setGuardandoPago(true)
     try {
       const [{ error: errPago }, { error: errCuota }] = await Promise.all([
-        supabase.from('pagos').insert({
+        createPago({
           id_cuota: cuotaSeleccionada.id,
           id_propietario: perfil?.id ?? cuotaSeleccionada.unidades?.usuarios?.id ?? null,
           fecha: format(new Date(), 'yyyy-MM-dd'),
           monto: Number(formPago.monto),
           metodo_pago: formPago.metodo_pago,
         }),
-        supabase.from('cuotas').update({ estado: 'pagada' }).eq('id', cuotaSeleccionada.id),
+        updateCuotaEstado(cuotaSeleccionada.id, 'pagada'),
       ])
       if (errPago) throw errPago
       if (errCuota) throw errCuota
@@ -316,21 +255,13 @@ export default function PagosPage() {
               />
             </Grid.Col>
             <Grid.Col span={{ base: 6, sm: 2 }}>
-              <Select
-                label="Año"
-                data={aniosOpciones}
-                value={filtroAnio}
-                onChange={v => setFiltroAnio(v ?? anioActual())}
-              />
+              <Select label="Año" data={aniosOpciones} value={filtroAnio} onChange={v => setFiltroAnio(v ?? anioActual())} />
             </Grid.Col>
             <Grid.Col span={{ base: 6, sm: 3 }}>
               <Select
                 label="Estado"
                 placeholder="Todos"
-                data={['pendiente', 'pagada', 'mora'].map(e => ({
-                  value: e,
-                  label: e.charAt(0).toUpperCase() + e.slice(1),
-                }))}
+                data={['pendiente', 'pagada', 'mora'].map(e => ({ value: e, label: e.charAt(0).toUpperCase() + e.slice(1) }))}
                 value={filtroEstado}
                 onChange={v => setFiltroEstado(v ?? '')}
                 clearable
@@ -392,16 +323,10 @@ export default function PagosPage() {
                           </Text>
                         </Table.Td>
                         {esAdmin && (
-                          <Table.Td>
-                            <Text size="sm">{c.unidades?.usuarios?.nombre ?? '—'}</Text>
-                          </Table.Td>
+                          <Table.Td><Text size="sm">{c.unidades?.usuarios?.nombre ?? '—'}</Text></Table.Td>
                         )}
-                        <Table.Td>
-                          <Text size="sm" tt="capitalize">{mesLabel(c.mes)}</Text>
-                        </Table.Td>
-                        <Table.Td>
-                          <Text size="sm" fw={600}>${Number(c.monto_base ?? 0).toLocaleString('es-CO')}</Text>
-                        </Table.Td>
+                        <Table.Td><Text size="sm" tt="capitalize">{mesLabel(c.mes)}</Text></Table.Td>
+                        <Table.Td><Text size="sm" fw={600}>${Number(c.monto_base ?? 0).toLocaleString('es-CO')}</Text></Table.Td>
                         <Table.Td>
                           <Text size="sm" c={Number(c.interes_mora) > 0 ? 'red' : 'dimmed'}>
                             {Number(c.interes_mora) > 0 ? `$${Number(c.interes_mora).toLocaleString('es-CO')}` : '—'}
@@ -412,14 +337,10 @@ export default function PagosPage() {
                             {c.estado}
                           </Badge>
                         </Table.Td>
-                        <Table.Td>
-                          <Text size="sm" tt="capitalize">{ultimoPago?.metodo_pago ?? '—'}</Text>
-                        </Table.Td>
+                        <Table.Td><Text size="sm" tt="capitalize">{ultimoPago?.metodo_pago ?? '—'}</Text></Table.Td>
                         <Table.Td>
                           <Text size="sm">
-                            {ultimoPago?.fecha
-                              ? format(parseISO(ultimoPago.fecha), 'dd MMM yyyy', { locale: es })
-                              : '—'}
+                            {ultimoPago?.fecha ? format(parseISO(ultimoPago.fecha), 'dd MMM yyyy', { locale: es }) : '—'}
                           </Text>
                         </Table.Td>
                         <Table.Td ta="center">
@@ -442,12 +363,7 @@ export default function PagosPage() {
       <Modal
         opened={modalPago}
         onClose={cerrarModalPago}
-        title={
-          <Group gap="xs">
-            <DollarSign size={18} />
-            <Text fw={600}>Registrar pago</Text>
-          </Group>
-        }
+        title={<Group gap="xs"><DollarSign size={18} /><Text fw={600}>Registrar pago</Text></Group>}
         size="sm"
         centered
         overlayProps={{ blur: 3 }}
@@ -456,14 +372,10 @@ export default function PagosPage() {
           <Stack gap="sm">
             <Paper p="sm" radius="sm" bg="gray.0">
               <Stack gap={2}>
-                <Text size="sm" fw={500} tt="capitalize">
-                  Administración {mesLabel(cuotaSeleccionada.mes)}
-                </Text>
+                <Text size="sm" fw={500} tt="capitalize">Administración {mesLabel(cuotaSeleccionada.mes)}</Text>
                 <Text size="xs" c="dimmed">
                   Unidad {cuotaSeleccionada.unidades?.numero}
-                  {cuotaSeleccionada.unidades?.usuarios?.nombre
-                    ? ` · ${cuotaSeleccionada.unidades.usuarios.nombre}`
-                    : ''}
+                  {cuotaSeleccionada.unidades?.usuarios?.nombre ? ` · ${cuotaSeleccionada.unidades.usuarios.nombre}` : ''}
                 </Text>
               </Stack>
             </Paper>
@@ -486,15 +398,8 @@ export default function PagosPage() {
             />
             <Divider />
             <Group justify="flex-end" gap="sm">
-              <Button variant="default" onClick={cerrarModalPago} disabled={guardandoPago}>
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleRegistrarPago}
-                loading={guardandoPago}
-                color="green"
-                leftSection={<CheckCircle2 size={14} />}
-              >
+              <Button variant="default" onClick={cerrarModalPago} disabled={guardandoPago}>Cancelar</Button>
+              <Button onClick={handleRegistrarPago} loading={guardandoPago} color="green" leftSection={<CheckCircle2 size={14} />}>
                 Confirmar pago
               </Button>
             </Group>

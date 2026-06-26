@@ -22,8 +22,10 @@ import {
 } from 'recharts'
 import { format, subMonths, startOfMonth, endOfMonth, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { supabase } from '@/services/supabaseClient'
 import { useAuth } from '@/context/AuthContext'
+import { getDashboardStats, getRecaudacionMeses, getReservasDeHoy } from '@/supabase/helpers/dashboard'
+import { getPqrsRecientes, getPqrsRecientesByUsuario } from '@/supabase/helpers/pqrs'
+import { getReservasProximasByUsuario } from '@/supabase/helpers/reservas'
 
 // ─── Colores y helpers ────────────────────────────────────────────────────────
 
@@ -59,7 +61,6 @@ function StatCard({ label, value, icon: Icon, color, loading }) {
       border: '1px solid rgba(15,31,61,0.06)',
       overflow: 'hidden',
     }}>
-      {/* Colored top accent line */}
       <div style={{ height: 3, background: `linear-gradient(90deg, ${c.icon} 0%, ${c.bg.replace('0.1)', '0.4)')} 100%)` }} />
       <div style={{ padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
@@ -98,25 +99,8 @@ function AdminDashboard() {
     setStatsLoading(true)
     try {
       const hoy = format(new Date(), 'yyyy-MM-dd')
-
-      const [
-        { count: totalUnidades },
-        { count: enMora },
-        { count: pqrsActivas },
-        { count: reservasDeHoy },
-      ] = await Promise.all([
-        supabase.from('unidades').select('*', { count: 'exact', head: true }),
-        supabase.from('unidades').select('*', { count: 'exact', head: true }).eq('estado', 'mora'),
-        supabase.from('pqrs').select('*', { count: 'exact', head: true }).neq('estado', 'cerrada'),
-        supabase.from('reservas').select('*', { count: 'exact', head: true }).eq('fecha', hoy),
-      ])
-
-      setStats({
-        unidades: totalUnidades ?? 0,
-        mora: enMora ?? 0,
-        pqrs: pqrsActivas ?? 0,
-        reservasHoy: reservasDeHoy ?? 0,
-      })
+      const s = await getDashboardStats(hoy)
+      setStats(s)
     } catch {
       notifications.show({ color: 'red', title: 'Error', message: 'No se pudieron cargar las estadísticas.' })
     } finally {
@@ -135,23 +119,7 @@ function AdminDashboard() {
           fin: format(endOfMonth(fecha), 'yyyy-MM-dd'),
         }
       })
-
-      const resultados = await Promise.all(
-        meses.map(({ inicio, fin }) =>
-          supabase
-            .from('pagos')
-            .select('monto')
-            .gte('fecha', inicio)
-            .lte('fecha', fin)
-        )
-      )
-
-      const data = meses.map(({ label }, i) => {
-        const filas = resultados[i].data ?? []
-        const total = filas.reduce((sum, p) => sum + (Number(p.monto) || 0), 0)
-        return { mes: label.charAt(0).toUpperCase() + label.slice(1), total }
-      })
-
+      const data = await getRecaudacionMeses(meses)
       setChartData(data)
     } catch {
       notifications.show({ color: 'red', title: 'Error', message: 'No se pudo cargar la gráfica de pagos.' })
@@ -163,11 +131,7 @@ function AdminDashboard() {
   const cargarPQRs = useCallback(async () => {
     setPqrsLoading(true)
     try {
-      const { data, error } = await supabase
-        .from('pqrs')
-        .select('id, asunto, estado, tipo, created_at')
-        .order('created_at', { ascending: false })
-        .limit(5)
+      const { data, error } = await getPqrsRecientes(5)
       if (error) {
         notifications.show({ color: 'red', title: 'Error', message: 'No se pudieron cargar las PQRs.' })
         return
@@ -184,11 +148,7 @@ function AdminDashboard() {
     setReservasLoading(true)
     try {
       const hoy = format(new Date(), 'yyyy-MM-dd')
-      const { data, error } = await supabase
-        .from('reservas')
-        .select('id, hora_inicio, hora_fin, estado, zonas_comunes:id_zona(nombre), usuarios:id_usuario(nombre)')
-        .eq('fecha', hoy)
-        .order('hora_inicio')
+      const { data, error } = await getReservasDeHoy(hoy)
       if (error) {
         notifications.show({ color: 'red', title: 'Error', message: 'No se pudieron cargar las reservas de hoy.' })
         return
@@ -215,11 +175,8 @@ function AdminDashboard() {
     { label: 'Reservas Hoy', value: stats.reservasHoy, icon: CalendarDays, color: 'green' },
   ]
 
-  const maxChart = Math.max(...chartData.map((d) => d.total), 1)
-
   return (
     <Stack gap="lg">
-      {/* Stat Cards */}
       <Grid gutter="md">
         {statCards.map((card) => (
           <Grid.Col key={card.label} span={{ base: 12, xs: 6, md: 3 }}>
@@ -228,7 +185,6 @@ function AdminDashboard() {
         ))}
       </Grid>
 
-      {/* Gráfica + Reservas hoy */}
       <Grid gutter="md">
         <Grid.Col span={{ base: 12, md: 8 }}>
           <Card shadow="sm" padding="lg" radius="md" withBorder h="100%">
@@ -322,7 +278,6 @@ function AdminDashboard() {
         </Grid.Col>
       </Grid>
 
-      {/* Últimas PQRs */}
       <Card shadow="sm" padding="lg" radius="md" withBorder>
         <Group mb="md" justify="space-between">
           <Group gap={8}>
@@ -405,13 +360,7 @@ function ResidenteDashboard({ perfil }) {
     if (!perfil?.id) return
     setPqrsLoading(true)
     try {
-      const { data, error } = await supabase
-        .from('pqrs')
-        .select('id, asunto, estado, tipo, created_at')
-        .eq('usuario_id', perfil.id)
-        .neq('estado', 'cerrada')
-        .order('created_at', { ascending: false })
-        .limit(5)
+      const { data, error } = await getPqrsRecientesByUsuario(perfil.id, 5)
       if (error) {
         notifications.show({ color: 'red', title: 'Error', message: 'No se pudieron cargar tus PQRs.' })
         return
@@ -428,14 +377,8 @@ function ResidenteDashboard({ perfil }) {
     if (!perfil?.id) return
     setReservasLoading(true)
     try {
-      const hoy = format(new Date(), 'yyyy-MM-dd')
-      const { data, error } = await supabase
-        .from('reservas')
-        .select('id, fecha, hora_inicio, hora_fin, estado, zonas_comunes:id_zona(nombre)')
-        .eq('id_usuario', perfil.id)
-        .gte('fecha', hoy)
-        .order('fecha')
-        .limit(5)
+      const fechaDesde = format(new Date(), 'yyyy-MM-dd')
+      const { data, error } = await getReservasProximasByUsuario(perfil.id, fechaDesde, 5)
       if (error) {
         notifications.show({ color: 'red', title: 'Error', message: 'No se pudieron cargar tus reservas.' })
         return
@@ -481,7 +424,6 @@ function ResidenteDashboard({ perfil }) {
       </div>
 
       <Grid gutter="md">
-        {/* Mis PQRs */}
         <Grid.Col span={{ base: 12, md: 6 }}>
           <Card shadow="sm" padding="lg" radius="md" withBorder h="100%">
             <Group mb="md" justify="space-between">
@@ -535,7 +477,6 @@ function ResidenteDashboard({ perfil }) {
           </Card>
         </Grid.Col>
 
-        {/* Mis reservas */}
         <Grid.Col span={{ base: 12, md: 6 }}>
           <Card shadow="sm" padding="lg" radius="md" withBorder h="100%">
             <Group mb="md" justify="space-between">

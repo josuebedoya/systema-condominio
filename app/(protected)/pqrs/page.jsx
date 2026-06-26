@@ -12,10 +12,14 @@ import {
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { supabase } from '../../../services/supabaseClient'
 import { useAuth } from '../../../context/AuthContext'
-
-// ─── Constantes ───────────────────────────────────────────────────────────────
+import {
+  getPqrs,
+  getRespuestasByPqr,
+  createPqr,
+  updatePqrEstado,
+  createRespuesta,
+} from '@/supabase/helpers/pqrs'
 
 const TIPOS = ['peticion', 'queja', 'reclamo', 'sugerencia']
 const CATEGORIAS = ['convivencia', 'infraestructura', 'administracion', 'servicios', 'seguridad', 'otro']
@@ -37,23 +41,17 @@ const tipoColor = {
 
 const FORM_INICIAL = { tipo: 'peticion', categoria: 'otro', asunto: '', descripcion: '' }
 
-// ─── Página principal ─────────────────────────────────────────────────────────
-
 export default function PQRSPage() {
   const { perfil, rol } = useAuth()
   const esAdmin = rol === 'administrador'
 
-  // ── Datos ────────────────────────────────────────────────────────────────────
   const [pqrs, setPqrs] = useState([])
   const [loading, setLoading] = useState(true)
-
-  // ── Filtros ──────────────────────────────────────────────────────────────────
   const [busqueda, setBusqueda] = useState('')
   const [filtroBusqueda, setFiltroBusqueda] = useState('')
   const [filtroTipo, setFiltroTipo] = useState('')
   const [filtroEstado, setFiltroEstado] = useState('')
 
-  // ── Drawer detalle ────────────────────────────────────────────────────────────
   const [drawerAbierto, { open: abrirDrawer, close: cerrarDrawer }] = useDisclosure(false)
   const [pqrSeleccionada, setPqrSeleccionada] = useState(null)
   const [respuestas, setRespuestas] = useState([])
@@ -62,31 +60,20 @@ export default function PQRSPage() {
   const [textoRespuesta, setTextoRespuesta] = useState('')
   const [enviandoRespuesta, setEnviandoRespuesta] = useState(false)
 
-  // ── Modal radicar ─────────────────────────────────────────────────────────────
   const [modalAbierto, { open: abrirModal, close: cerrarModal }] = useDisclosure(false)
   const [form, setForm] = useState(FORM_INICIAL)
   const [guardando, setGuardando] = useState(false)
 
-  // ── Cargar PQRs ───────────────────────────────────────────────────────────────
   const cargarPqrs = useCallback(async () => {
     if (!perfil && !esAdmin) return
     setLoading(true)
     try {
-      let query = supabase
-        .from('pqrs')
-        .select(`
-          id, tipo, categoria, asunto, descripcion, estado, created_at,
-          usuarios:usuario_id(id, nombre, email)
-        `)
-        .order('created_at', { ascending: false })
-
-      if (!esAdmin && perfil?.id) {
-        query = query.eq('usuario_id', perfil.id)
-      }
-      if (filtroTipo) query = query.eq('tipo', filtroTipo)
-      if (filtroEstado) query = query.eq('estado', filtroEstado)
-
-      const { data, error } = await query
+      const { data, error } = await getPqrs({
+        usuarioId: perfil?.id,
+        esAdmin,
+        filtroTipo,
+        filtroEstado,
+      })
       if (error) throw error
 
       let resultado = data ?? []
@@ -108,7 +95,6 @@ export default function PQRSPage() {
 
   useEffect(() => { cargarPqrs() }, [cargarPqrs])
 
-  // ── Abrir detalle ─────────────────────────────────────────────────────────────
   async function verDetalle(pqr) {
     setPqrSeleccionada(pqr)
     setNuevoEstado(pqr.estado)
@@ -116,14 +102,7 @@ export default function PQRSPage() {
     abrirDrawer()
     setCargandoDetalle(true)
     try {
-      const { data, error } = await supabase
-        .from('pqrs_respuestas')
-        .select(`
-          id, texto, created_at, es_admin,
-          usuarios:usuario_id(nombre)
-        `)
-        .eq('pqr_id', pqr.id)
-        .order('created_at', { ascending: true })
+      const { data, error } = await getRespuestasByPqr(pqr.id)
       if (error) throw error
       setRespuestas(data ?? [])
     } catch (err) {
@@ -133,7 +112,6 @@ export default function PQRSPage() {
     }
   }
 
-  // ── Enviar respuesta / cambiar estado ─────────────────────────────────────────
   async function handleEnviarRespuesta() {
     if (!textoRespuesta.trim() && nuevoEstado === pqrSeleccionada?.estado) {
       notifications.show({ color: 'yellow', message: 'Escribe una respuesta o cambia el estado.' })
@@ -141,21 +119,18 @@ export default function PQRSPage() {
     }
     setEnviandoRespuesta(true)
     try {
-      const actualizaciones = {}
-      if (nuevoEstado !== pqrSeleccionada?.estado) actualizaciones.estado = nuevoEstado
-
-      if (Object.keys(actualizaciones).length > 0) {
-        const { error } = await supabase.from('pqrs').update(actualizaciones).eq('id', pqrSeleccionada.id)
+      if (nuevoEstado !== pqrSeleccionada?.estado) {
+        const { error } = await updatePqrEstado(pqrSeleccionada.id, nuevoEstado)
         if (error) throw error
       }
 
       if (textoRespuesta.trim()) {
-        const { error } = await supabase.from('pqrs_respuestas').insert([{
+        const { error } = await createRespuesta({
           pqr_id: pqrSeleccionada.id,
           usuario_id: perfil?.id,
           texto: textoRespuesta.trim(),
           es_admin: esAdmin,
-        }])
+        })
         if (error) throw error
       }
 
@@ -170,7 +145,6 @@ export default function PQRSPage() {
     }
   }
 
-  // ── Radicar PQR ───────────────────────────────────────────────────────────────
   function setField(campo, valor) {
     setForm((prev) => ({ ...prev, [campo]: valor }))
   }
@@ -180,14 +154,14 @@ export default function PQRSPage() {
     if (!form.descripcion.trim()) return notifications.show({ color: 'yellow', message: 'La descripción es obligatoria.' })
     setGuardando(true)
     try {
-      const { error } = await supabase.from('pqrs').insert([{
+      const { error } = await createPqr({
         tipo: form.tipo,
         categoria: form.categoria,
         asunto: form.asunto.trim(),
         descripcion: form.descripcion.trim(),
         estado: 'abierta',
         usuario_id: perfil?.id ?? null,
-      }])
+      })
       if (error) throw error
       notifications.show({ color: 'green', title: 'PQR radicada', message: `Tu ${form.tipo} fue registrada exitosamente.` })
       setForm(FORM_INICIAL)
@@ -208,18 +182,14 @@ export default function PQRSPage() {
   return (
     <>
       <Stack gap="lg">
-        {/* Cabecera */}
         <Group justify="space-between" wrap="wrap" gap="sm">
           <Stack gap={2}>
             <Title order={3}>PQR — Peticiones, Quejas y Reclamos</Title>
             <Text size="sm" c="dimmed">{pqrs.length} solicitud{pqrs.length !== 1 ? 'es' : ''}</Text>
           </Stack>
-          <Button leftSection={<Plus size={16} />} onClick={abrirModal}>
-            Radicar PQR
-          </Button>
+          <Button leftSection={<Plus size={16} />} onClick={abrirModal}>Radicar PQR</Button>
         </Group>
 
-        {/* Filtros */}
         <Paper p="md" radius="md" withBorder>
           <Grid gutter="sm" align="flex-end">
             <Grid.Col span={{ base: 12, sm: 4 }}>
@@ -266,7 +236,6 @@ export default function PQRSPage() {
           </Grid>
         </Paper>
 
-        {/* Tabla */}
         <Paper shadow="sm" radius="md" withBorder style={{ overflow: 'hidden' }}>
           {loading ? (
             <Center h={300}><Loader size="md" /></Center>
@@ -294,22 +263,12 @@ export default function PQRSPage() {
                 <Table.Tbody>
                   {pqrs.map((p) => (
                     <Table.Tr key={p.id} onClick={() => verDetalle(p)}>
+                      <Table.Td><Text size="sm" fw={500} lineClamp={1}>{p.asunto}</Text></Table.Td>
                       <Table.Td>
-                        <Text size="sm" fw={500} lineClamp={1}>{p.asunto}</Text>
+                        <Badge size="sm" color={tipoColor[p.tipo] ?? 'gray'} variant="light" tt="capitalize">{p.tipo}</Badge>
                       </Table.Td>
-                      <Table.Td>
-                        <Badge size="sm" color={tipoColor[p.tipo] ?? 'gray'} variant="light" tt="capitalize">
-                          {p.tipo}
-                        </Badge>
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="sm" tt="capitalize">{p.categoria?.replace('_', ' ') ?? '—'}</Text>
-                      </Table.Td>
-                      {esAdmin && (
-                        <Table.Td>
-                          <Text size="sm">{p.usuarios?.nombre ?? '—'}</Text>
-                        </Table.Td>
-                      )}
+                      <Table.Td><Text size="sm" tt="capitalize">{p.categoria?.replace('_', ' ') ?? '—'}</Text></Table.Td>
+                      {esAdmin && <Table.Td><Text size="sm">{p.usuarios?.nombre ?? '—'}</Text></Table.Td>}
                       <Table.Td>
                         <Badge size="sm" color={estadoColor[p.estado] ?? 'gray'} variant="light" tt="capitalize">
                           {p.estado?.replace('_', ' ')}
@@ -320,9 +279,7 @@ export default function PQRSPage() {
                           {p.created_at ? format(parseISO(p.created_at), 'dd MMM yyyy', { locale: es }) : '—'}
                         </Text>
                       </Table.Td>
-                      <Table.Td>
-                        <ChevronRight size={16} color="var(--mantine-color-gray-4)" />
-                      </Table.Td>
+                      <Table.Td><ChevronRight size={16} color="var(--mantine-color-gray-4)" /></Table.Td>
                     </Table.Tr>
                   ))}
                 </Table.Tbody>
@@ -332,19 +289,14 @@ export default function PQRSPage() {
         </Paper>
       </Stack>
 
-      {/* ── Drawer detalle PQR ──────────────────────────────────────────────────── */}
       <Drawer
         opened={drawerAbierto}
         onClose={cerrarDrawer}
         title={
           <Stack gap={2}>
             <Group gap="xs">
-              <Badge color={tipoColor[pqrSeleccionada?.tipo] ?? 'gray'} variant="light" tt="capitalize" size="sm">
-                {pqrSeleccionada?.tipo}
-              </Badge>
-              <Badge color={estadoColor[pqrSeleccionada?.estado] ?? 'gray'} variant="filled" size="sm">
-                {pqrSeleccionada?.estado?.replace('_', ' ')}
-              </Badge>
+              <Badge color={tipoColor[pqrSeleccionada?.tipo] ?? 'gray'} variant="light" tt="capitalize" size="sm">{pqrSeleccionada?.tipo}</Badge>
+              <Badge color={estadoColor[pqrSeleccionada?.estado] ?? 'gray'} variant="filled" size="sm">{pqrSeleccionada?.estado?.replace('_', ' ')}</Badge>
             </Group>
             <Text fw={600} size="sm" lineClamp={2}>{pqrSeleccionada?.asunto}</Text>
           </Stack>
@@ -357,16 +309,13 @@ export default function PQRSPage() {
           <Center h={200}><Loader /></Center>
         ) : (
           <Stack gap="lg" pt="sm">
-            {/* Descripción original */}
             <Paper p="md" radius="md" withBorder>
               <Stack gap="xs">
                 <Group gap="xs">
                   <Text size="xs" c="dimmed" tt="uppercase" fw={600}>Descripción</Text>
                   <Text size="xs" c="dimmed">·</Text>
                   <Text size="xs" c="dimmed">
-                    {pqrSeleccionada?.created_at
-                      ? format(parseISO(pqrSeleccionada.created_at), "dd 'de' MMMM yyyy", { locale: es })
-                      : ''}
+                    {pqrSeleccionada?.created_at ? format(parseISO(pqrSeleccionada.created_at), "dd 'de' MMMM yyyy", { locale: es }) : ''}
                   </Text>
                 </Group>
                 <Text size="sm">{pqrSeleccionada?.descripcion}</Text>
@@ -376,7 +325,6 @@ export default function PQRSPage() {
               </Stack>
             </Paper>
 
-            {/* Timeline de respuestas */}
             <Box>
               <Text size="xs" c="dimmed" tt="uppercase" fw={600} mb="sm">Historial de respuestas</Text>
               {respuestas.length === 0 ? (
@@ -395,11 +343,9 @@ export default function PQRSPage() {
                       }}
                     >
                       <Group gap="xs" mb={4} justify="space-between">
-                        <Group gap="xs">
-                          <Text size="xs" fw={600} c={r.es_admin ? 'blue' : 'teal'}>
-                            {r.es_admin ? 'Administración' : (r.usuarios?.nombre ?? 'Usuario')}
-                          </Text>
-                        </Group>
+                        <Text size="xs" fw={600} c={r.es_admin ? 'blue' : 'teal'}>
+                          {r.es_admin ? 'Administración' : (r.usuarios?.nombre ?? 'Usuario')}
+                        </Text>
                         <Group gap="xs">
                           <Clock size={11} />
                           <Text size="xs" c="dimmed">
@@ -416,18 +362,12 @@ export default function PQRSPage() {
 
             <Divider />
 
-            {/* Responder / cambiar estado */}
             <Stack gap="sm">
-              <Text size="sm" fw={500}>
-                {esAdmin ? 'Gestionar PQR' : 'Añadir comentario'}
-              </Text>
+              <Text size="sm" fw={500}>{esAdmin ? 'Gestionar PQR' : 'Añadir comentario'}</Text>
               {esAdmin && (
                 <Select
                   label="Cambiar estado"
-                  data={ESTADOS.map((e) => ({
-                    value: e,
-                    label: e.replace('_', ' ').charAt(0).toUpperCase() + e.replace('_', ' ').slice(1),
-                  }))}
+                  data={ESTADOS.map((e) => ({ value: e, label: e.replace('_', ' ').charAt(0).toUpperCase() + e.replace('_', ' ').slice(1) }))}
                   value={nuevoEstado}
                   onChange={(v) => setNuevoEstado(v ?? pqrSeleccionada?.estado)}
                 />
@@ -439,11 +379,7 @@ export default function PQRSPage() {
                 value={textoRespuesta}
                 onChange={(e) => setTextoRespuesta(e.target.value)}
               />
-              <Button
-                onClick={handleEnviarRespuesta}
-                loading={enviandoRespuesta}
-                leftSection={<Send size={14} />}
-              >
+              <Button onClick={handleEnviarRespuesta} loading={enviandoRespuesta} leftSection={<Send size={14} />}>
                 Enviar
               </Button>
             </Stack>
@@ -451,7 +387,6 @@ export default function PQRSPage() {
         )}
       </Drawer>
 
-      {/* ── Modal radicar PQR ──────────────────────────────────────────────────── */}
       <Modal
         opened={modalAbierto}
         onClose={cerrarModal}
@@ -477,27 +412,12 @@ export default function PQRSPage() {
               onChange={(v) => setField('categoria', v ?? 'otro')}
             />
           </Group>
-          <TextInput
-            label="Asunto"
-            placeholder="Resumen breve del problema o solicitud"
-            required
-            value={form.asunto}
-            onChange={(e) => setField('asunto', e.target.value)}
-          />
-          <Textarea
-            label="Descripción detallada"
-            placeholder="Explica con detalle tu petición, queja o reclamo..."
-            required
-            minRows={4}
-            value={form.descripcion}
-            onChange={(e) => setField('descripcion', e.target.value)}
-          />
+          <TextInput label="Asunto" placeholder="Resumen breve del problema o solicitud" required value={form.asunto} onChange={(e) => setField('asunto', e.target.value)} />
+          <Textarea label="Descripción detallada" placeholder="Explica con detalle tu petición, queja o reclamo..." required minRows={4} value={form.descripcion} onChange={(e) => setField('descripcion', e.target.value)} />
           <Divider mt="xs" />
           <Group justify="flex-end" gap="sm">
             <Button variant="default" onClick={cerrarModal} disabled={guardando}>Cancelar</Button>
-            <Button onClick={handleGuardar} loading={guardando} leftSection={<Send size={14} />}>
-              Radicar
-            </Button>
+            <Button onClick={handleGuardar} loading={guardando} leftSection={<Send size={14} />}>Radicar</Button>
           </Group>
         </Stack>
       </Modal>

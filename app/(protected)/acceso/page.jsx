@@ -13,69 +13,48 @@ import {
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { supabase } from '../../../services/supabaseClient'
 import { useAuth } from '../../../context/AuthContext'
-
-// ─── Página principal ─────────────────────────────────────────────────────────
+import {
+  getVisitantesActivos,
+  getLogAccesoHoy,
+  getNovedadesHoy,
+  buscarVisitante,
+  createVisitante,
+  createRegistroAcceso,
+  registrarSalida,
+  createNovedad,
+} from '@/supabase/helpers/acceso'
+import { getUnidadesActivas } from '@/supabase/helpers/unidades'
 
 export default function AccesoPage() {
   const { perfil } = useAuth()
 
-  // ── Búsqueda de visitante ─────────────────────────────────────────────────────
   const [busqueda, setBusqueda] = useState('')
   const [buscando, setBuscando] = useState(false)
   const [visitanteEncontrado, setVisitanteEncontrado] = useState(null)
   const [mostrarFormRegistro, setMostrarFormRegistro] = useState(false)
-
-  // ── Formulario de registro de visitante ───────────────────────────────────────
-  const [formVisitante, setFormVisitante] = useState({
-    nombre: '',
-    documento: '',
-    unidad_destino: '',
-  })
+  const [formVisitante, setFormVisitante] = useState({ nombre: '', documento: '', unidad_destino: '' })
   const [registrandoVisitante, setRegistrandoVisitante] = useState(false)
-
-  // ── Unidades disponibles para seleccionar destino ─────────────────────────────
   const [unidades, setUnidades] = useState([])
-
-  // ── Visitantes activos ────────────────────────────────────────────────────────
   const [visitantesActivos, setVisitantesActivos] = useState([])
   const [cargandoActivos, setCargandoActivos] = useState(true)
-
-  // ── Log de accesos de hoy ─────────────────────────────────────────────────────
   const [logHoy, setLogHoy] = useState([])
   const [cargandoLog, setCargandoLog] = useState(true)
-
-  // ── Novedades del turno ───────────────────────────────────────────────────────
   const [novedades, setNovedades] = useState([])
   const [cargandoNovedades, setCargandoNovedades] = useState(true)
   const [modalNovedad, { open: abrirModalNovedad, close: cerrarModalNovedad }] = useDisclosure(false)
   const [textoNovedad, setTextoNovedad] = useState('')
   const [guardandoNovedad, setGuardandoNovedad] = useState(false)
 
-  // ── Cargar unidades ────────────────────────────────────────────────────────────
   const cargarUnidades = useCallback(async () => {
-    const { data } = await supabase
-      .from('unidades')
-      .select('id, numero, torre')
-      .eq('estado', 'activo')
-      .order('numero')
+    const { data } = await getUnidadesActivas()
     setUnidades(data ?? [])
   }, [])
 
-  // ── Cargar visitantes activos (sin salida, con visitante) ────────────────────
   const cargarVisitantesActivos = useCallback(async () => {
     setCargandoActivos(true)
     try {
-      const { data, error } = await supabase
-        .from('registros_acceso')
-        .select(`
-          id, hora_ingreso,
-          visitantes:id_visitante(id, nombre, documento, unidades:id_unidad_destino(numero, torre))
-        `)
-        .is('hora_salida', null)
-        .not('id_visitante', 'is', null)
-        .order('hora_ingreso', { ascending: false })
+      const { data, error } = await getVisitantesActivos()
       if (error) throw error
       setVisitantesActivos(data ?? [])
     } catch (err) {
@@ -85,21 +64,11 @@ export default function AccesoPage() {
     }
   }, [])
 
-  // ── Cargar log del día (solo registros con visitante) ────────────────────────
   const cargarLogHoy = useCallback(async () => {
     setCargandoLog(true)
     try {
       const hoy = format(new Date(), 'yyyy-MM-dd')
-      const { data, error } = await supabase
-        .from('registros_acceso')
-        .select(`
-          id, hora_ingreso, hora_salida,
-          visitantes:id_visitante(nombre, documento, unidades:id_unidad_destino(numero, torre))
-        `)
-        .gte('hora_ingreso', `${hoy}T00:00:00`)
-        .lte('hora_ingreso', `${hoy}T23:59:59`)
-        .not('id_visitante', 'is', null)
-        .order('hora_ingreso', { ascending: false })
+      const { data, error } = await getLogAccesoHoy(`${hoy}T00:00:00`, `${hoy}T23:59:59`)
       if (error) throw error
       setLogHoy(data ?? [])
     } catch (err) {
@@ -109,18 +78,11 @@ export default function AccesoPage() {
     }
   }, [])
 
-  // ── Cargar novedades del turno (registros sin visitante) ──────────────────────
   const cargarNovedades = useCallback(async () => {
     setCargandoNovedades(true)
     try {
       const hoy = format(new Date(), 'yyyy-MM-dd')
-      const { data, error } = await supabase
-        .from('registros_acceso')
-        .select('id, hora_ingreso, novedad, usuarios:id_portero(nombre)')
-        .gte('hora_ingreso', `${hoy}T00:00:00`)
-        .lte('hora_ingreso', `${hoy}T23:59:59`)
-        .is('id_visitante', null)
-        .order('hora_ingreso', { ascending: false })
+      const { data, error } = await getNovedadesHoy(`${hoy}T00:00:00`, `${hoy}T23:59:59`)
       if (error) throw error
       setNovedades(data ?? [])
     } catch (err) {
@@ -137,19 +99,13 @@ export default function AccesoPage() {
     cargarNovedades()
   }, [cargarUnidades, cargarVisitantesActivos, cargarLogHoy, cargarNovedades])
 
-  // ── Buscar visitante ──────────────────────────────────────────────────────────
-  async function buscarVisitante() {
+  async function handleBuscarVisitante() {
     if (!busqueda.trim()) return
     setBuscando(true)
     setVisitanteEncontrado(null)
     setMostrarFormRegistro(false)
     try {
-      const { data, error } = await supabase
-        .from('visitantes')
-        .select('id, nombre, documento')
-        .or(`nombre.ilike.%${busqueda.trim()}%,documento.ilike.%${busqueda.trim()}%`)
-        .limit(1)
-        .maybeSingle()
+      const { data, error } = await buscarVisitante(busqueda.trim())
       if (error) throw error
       if (data) {
         setVisitanteEncontrado(data)
@@ -157,12 +113,7 @@ export default function AccesoPage() {
       } else {
         setVisitanteEncontrado(null)
         setMostrarFormRegistro(true)
-        setFormVisitante((prev) => ({
-          ...prev,
-          nombre: busqueda.trim(),
-          documento: '',
-          unidad_destino: '',
-        }))
+        setFormVisitante((prev) => ({ ...prev, nombre: busqueda.trim(), documento: '', unidad_destino: '' }))
       }
     } catch (err) {
       notifications.show({ color: 'red', title: 'Error al buscar', message: err.message })
@@ -182,7 +133,6 @@ export default function AccesoPage() {
     setFormVisitante((prev) => ({ ...prev, [campo]: valor }))
   }
 
-  // ── Registrar nuevo visitante + ingreso ───────────────────────────────────────
   async function handleRegistrarNuevo() {
     if (!formVisitante.nombre.trim()) return notifications.show({ color: 'yellow', message: 'El nombre es obligatorio.' })
     if (!formVisitante.documento.trim()) return notifications.show({ color: 'yellow', message: 'El documento es obligatorio.' })
@@ -190,24 +140,18 @@ export default function AccesoPage() {
 
     setRegistrandoVisitante(true)
     try {
-      // Crear visitante
-      const { data: nuevoVisitante, error: errV } = await supabase
-        .from('visitantes')
-        .insert([{
-          nombre: formVisitante.nombre.trim(),
-          documento: formVisitante.documento.trim(),
-          id_unidad_destino: formVisitante.unidad_destino || null,
-        }])
-        .select('id')
-        .single()
+      const { data: nuevoVisitante, error: errV } = await createVisitante({
+        nombre: formVisitante.nombre.trim(),
+        documento: formVisitante.documento.trim(),
+        id_unidad_destino: formVisitante.unidad_destino || null,
+      })
       if (errV) throw errV
 
-      // Registrar ingreso
-      const { error: errA } = await supabase.from('registros_acceso').insert([{
+      const { error: errA } = await createRegistroAcceso({
         id_visitante: nuevoVisitante.id,
         id_portero: perfil?.id ?? null,
         hora_ingreso: new Date().toISOString(),
-      }])
+      })
       if (errA) throw errA
 
       notifications.show({ color: 'green', title: 'Ingreso registrado', message: `${formVisitante.nombre} ingresó al conjunto.` })
@@ -221,7 +165,6 @@ export default function AccesoPage() {
     }
   }
 
-  // ── Registrar ingreso de visitante existente ──────────────────────────────────
   const [unidadDestino, setUnidadDestino] = useState('')
   const [registrandoIngreso, setRegistrandoIngreso] = useState(false)
 
@@ -230,11 +173,11 @@ export default function AccesoPage() {
     if (!unidadDestino) return notifications.show({ color: 'yellow', message: 'Selecciona la unidad de destino.' })
     setRegistrandoIngreso(true)
     try {
-      const { error } = await supabase.from('registros_acceso').insert([{
+      const { error } = await createRegistroAcceso({
         id_visitante: visitanteEncontrado.id,
         id_portero: perfil?.id ?? null,
         hora_ingreso: new Date().toISOString(),
-      }])
+      })
       if (error) throw error
       notifications.show({ color: 'green', title: 'Ingreso registrado', message: `${visitanteEncontrado.nombre} ingresó al conjunto.` })
       setUnidadDestino('')
@@ -248,13 +191,9 @@ export default function AccesoPage() {
     }
   }
 
-  // ── Registrar salida ──────────────────────────────────────────────────────────
   async function handleRegistrarSalida(accesoId, nombre) {
     try {
-      const { error } = await supabase
-        .from('registros_acceso')
-        .update({ hora_salida: new Date().toISOString() })
-        .eq('id', accesoId)
+      const { error } = await registrarSalida(accesoId, new Date().toISOString())
       if (error) throw error
       notifications.show({ color: 'blue', title: 'Salida registrada', message: `${nombre} salió del conjunto.` })
       cargarVisitantesActivos()
@@ -264,7 +203,6 @@ export default function AccesoPage() {
     }
   }
 
-  // ── Registrar novedad de turno ────────────────────────────────────────────────
   async function handleRegistrarNovedad() {
     if (!textoNovedad.trim()) {
       notifications.show({ color: 'yellow', message: 'Escribe la novedad antes de guardar.' })
@@ -272,11 +210,11 @@ export default function AccesoPage() {
     }
     setGuardandoNovedad(true)
     try {
-      const { error } = await supabase.from('registros_acceso').insert([{
+      const { error } = await createNovedad({
         id_portero: perfil?.id ?? null,
         hora_ingreso: new Date().toISOString(),
         novedad: textoNovedad.trim(),
-      }])
+      })
       if (error) throw error
       notifications.show({ color: 'green', title: 'Novedad registrada', message: 'La novedad quedó guardada en el turno.' })
       setTextoNovedad('')
@@ -312,7 +250,6 @@ export default function AccesoPage() {
         </Button>
       </Group>
 
-      {/* ── Resumen del día ──────────────────────────────────────────────────────── */}
       <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="md">
         <Card shadow="sm" padding="md" radius="md" withBorder>
           <Group gap="sm">
@@ -343,7 +280,6 @@ export default function AccesoPage() {
         </Card>
       </SimpleGrid>
 
-      {/* ── Búsqueda y registro ───────────────────────────────────────────────────── */}
       <Paper p="lg" radius="md" withBorder>
         <Stack gap="md">
           <Text fw={600} size="sm">Buscar o registrar visitante</Text>
@@ -353,7 +289,7 @@ export default function AccesoPage() {
               leftSection={<Search size={15} />}
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && buscarVisitante()}
+              onKeyDown={(e) => e.key === 'Enter' && handleBuscarVisitante()}
               style={{ flex: 1 }}
               rightSection={
                 busqueda
@@ -361,12 +297,11 @@ export default function AccesoPage() {
                   : null
               }
             />
-            <Button onClick={buscarVisitante} loading={buscando} leftSection={<Search size={14} />}>
+            <Button onClick={handleBuscarVisitante} loading={buscando} leftSection={<Search size={14} />}>
               Buscar
             </Button>
           </Group>
 
-          {/* Visitante encontrado */}
           {visitanteEncontrado && (
             <Paper p="md" radius="md" bg="green.0" withBorder style={{ borderColor: 'var(--mantine-color-green-3)' }}>
               <Stack gap="sm">
@@ -400,7 +335,6 @@ export default function AccesoPage() {
             </Paper>
           )}
 
-          {/* Visitante no encontrado → formulario de registro */}
           {mostrarFormRegistro && (
             <Paper p="md" radius="md" bg="orange.0" withBorder style={{ borderColor: 'var(--mantine-color-orange-3)' }}>
               <Stack gap="sm">
@@ -447,7 +381,6 @@ export default function AccesoPage() {
         </Stack>
       </Paper>
 
-      {/* ── Visitantes activos ────────────────────────────────────────────────────── */}
       <Box>
         <Text fw={600} size="sm" mb="sm">Visitantes en el conjunto ahora</Text>
         <Paper shadow="sm" radius="md" withBorder style={{ overflow: 'hidden' }}>
@@ -475,12 +408,8 @@ export default function AccesoPage() {
                 <Table.Tbody>
                   {visitantesActivos.map((a) => (
                     <Table.Tr key={a.id}>
-                      <Table.Td>
-                        <Text size="sm" fw={500}>{a.visitantes?.nombre ?? '—'}</Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="sm">{a.visitantes?.documento ?? '—'}</Text>
-                      </Table.Td>
+                      <Table.Td><Text size="sm" fw={500}>{a.visitantes?.nombre ?? '—'}</Text></Table.Td>
+                      <Table.Td><Text size="sm">{a.visitantes?.documento ?? '—'}</Text></Table.Td>
                       <Table.Td>
                         <Text size="sm">
                           Unidad {a.visitantes?.unidades?.numero ?? '—'}{a.visitantes?.unidades?.torre ? ` (T.${a.visitantes.unidades.torre})` : ''}
@@ -490,9 +419,7 @@ export default function AccesoPage() {
                         <Group gap="xs">
                           <Clock size={13} />
                           <Text size="sm">
-                            {a.hora_ingreso
-                              ? format(parseISO(a.hora_ingreso), 'HH:mm', { locale: es })
-                              : '—'}
+                            {a.hora_ingreso ? format(parseISO(a.hora_ingreso), 'HH:mm', { locale: es }) : '—'}
                           </Text>
                         </Group>
                       </Table.Td>
@@ -516,7 +443,6 @@ export default function AccesoPage() {
         </Paper>
       </Box>
 
-      {/* ── Log de accesos del día ────────────────────────────────────────────────── */}
       <Box>
         <Text fw={600} size="sm" mb="sm">
           Registro de accesos — {format(new Date(), "EEEE d 'de' MMMM", { locale: es })}
@@ -544,12 +470,8 @@ export default function AccesoPage() {
                 <Table.Tbody>
                   {logHoy.map((a) => (
                     <Table.Tr key={a.id}>
-                      <Table.Td>
-                        <Text size="sm" fw={500}>{a.visitantes?.nombre ?? '—'}</Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="sm">{a.visitantes?.documento ?? '—'}</Text>
-                      </Table.Td>
+                      <Table.Td><Text size="sm" fw={500}>{a.visitantes?.nombre ?? '—'}</Text></Table.Td>
+                      <Table.Td><Text size="sm">{a.visitantes?.documento ?? '—'}</Text></Table.Td>
                       <Table.Td>
                         <Text size="sm">
                           {a.visitantes?.unidades?.numero ?? '—'}{a.visitantes?.unidades?.torre ? ` T.${a.visitantes.unidades.torre}` : ''}
@@ -558,9 +480,7 @@ export default function AccesoPage() {
                       <Table.Td>
                         <Group gap="xs">
                           <LogIn size={12} color="var(--mantine-color-green-6)" />
-                          <Text size="sm">
-                            {a.hora_ingreso ? format(parseISO(a.hora_ingreso), 'HH:mm') : '—'}
-                          </Text>
+                          <Text size="sm">{a.hora_ingreso ? format(parseISO(a.hora_ingreso), 'HH:mm') : '—'}</Text>
                         </Group>
                       </Table.Td>
                       <Table.Td>
@@ -574,11 +494,7 @@ export default function AccesoPage() {
                         )}
                       </Table.Td>
                       <Table.Td>
-                        <Badge
-                          size="xs"
-                          color={a.hora_salida ? 'gray' : 'green'}
-                          variant="light"
-                        >
+                        <Badge size="xs" color={a.hora_salida ? 'gray' : 'green'} variant="light">
                           {a.hora_salida ? 'Salió' : 'En conjunto'}
                         </Badge>
                       </Table.Td>
@@ -590,7 +506,7 @@ export default function AccesoPage() {
           )}
         </Paper>
       </Box>
-      {/* ── Novedades del turno ───────────────────────────────────────────────────── */}
+
       <Box>
         <Group justify="space-between" mb="sm">
           <Text fw={600} size="sm">
@@ -631,7 +547,6 @@ export default function AccesoPage() {
       </Box>
     </Stack>
 
-    {/* ── Modal registrar novedad ──────────────────────────────────────────────── */}
     <Modal
       opened={modalNovedad}
       onClose={cerrarModalNovedad}
